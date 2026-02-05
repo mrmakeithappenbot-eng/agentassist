@@ -12,16 +12,22 @@ import os
 # Get database URL from environment
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://localhost/agentassist"
+    "sqlite:///./agentassist.db"  # Default to SQLite for simplicity
 )
 
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before using
-    pool_size=5,
-    max_overflow=10
-)
+# Create engine with appropriate settings for SQLite or PostgreSQL
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}  # Needed for SQLite
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Verify connections before using
+        pool_size=5,
+        max_overflow=10
+    )
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
