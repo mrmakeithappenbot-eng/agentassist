@@ -15,7 +15,7 @@ class BoldTrailCRM(CRM_Handler):
     Authentication: API Key (passed in headers)
     """
     
-    BASE_URL = "https://api.boldtrail.com/v1"
+    BASE_URL = "https://api.kvcore.com/v2"
     
     def __init__(self, credentials: Dict[str, Any]):
         super().__init__(credentials)
@@ -32,17 +32,41 @@ class BoldTrailCRM(CRM_Handler):
         }
     
     async def validate_connection(self) -> bool:
-        """Test the API connection by fetching account info"""
+        """Test the API connection by fetching user info"""
         try:
             async with httpx.AsyncClient() as client:
+                # Try the user/me endpoint for kvCore API
                 response = await client.get(
-                    f"{self.BASE_URL}/account",
+                    f"{self.BASE_URL}/public/users/me",
                     headers=self.headers,
                     timeout=10.0
                 )
-                return response.status_code == 200
+                if response.status_code == 200:
+                    return True
+                
+                # Try alternative endpoints
+                alt_endpoints = [
+                    f"{self.BASE_URL}/users/me",
+                    f"{self.BASE_URL}/user",
+                    "https://api.kvcore.com/v2/leads",
+                ]
+                
+                for endpoint in alt_endpoints:
+                    try:
+                        response = await client.get(
+                            endpoint,
+                            headers=self.headers,
+                            timeout=10.0
+                        )
+                        if response.status_code in [200, 201]:
+                            return True
+                    except:
+                        continue
+                
+                return False
+                
         except Exception as e:
-            print(f"BoldTrail connection validation failed: {e}")
+            print(f"BoldTrail/kvCore connection validation failed: {e}")
             return False
     
     async def get_leads(
@@ -72,7 +96,7 @@ class BoldTrailCRM(CRM_Handler):
                     params["tags"] = ",".join(tags)
                 
                 response = await client.get(
-                    f"{self.BASE_URL}/contacts",
+                    f"{self.BASE_URL}/public/leads",
                     headers=self.headers,
                     params=params,
                     timeout=30.0
