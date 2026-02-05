@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "*",  # Allow all origins for now (tighten in production)
     ]
     
     # AI/LLM

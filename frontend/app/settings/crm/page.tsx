@@ -74,7 +74,8 @@ export default function CRMSettings() {
     
     try {
       // Call backend API to connect CRM
-      const response = await fetch('http://localhost:8000/api/crm/connect', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/crm/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
