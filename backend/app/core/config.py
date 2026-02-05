@@ -9,17 +9,17 @@ from typing import List
 class Settings(BaseSettings):
     # App
     APP_NAME: str = "AgentAssist"
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
+    ENVIRONMENT: str = "production"
+    DEBUG: bool = False
     
     # Security
-    SECRET_KEY: str  # For JWT signing
-    ENCRYPTION_KEY: str  # For AES-256 encryption of CRM credentials (32 bytes base64)
+    SECRET_KEY: str = "change-me-in-production"  # For JWT signing
+    ENCRYPTION_KEY: str = "change-me-in-production"  # For AES-256 encryption of CRM credentials (32 bytes base64)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "postgresql://localhost/agentassist"
     
     # CORS
     CORS_ORIGINS: List[str] = [
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     ]
     
     # AI/LLM
-    OPENAI_API_KEY: str
+    OPENAI_API_KEY: str = "sk-placeholder"
     ANTHROPIC_API_KEY: str = ""
     DEFAULT_AI_MODEL: str = "gpt-4-turbo"
     VISION_MODEL: str = "gpt-4o"  # For image analysis
