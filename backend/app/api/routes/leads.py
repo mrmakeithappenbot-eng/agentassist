@@ -10,6 +10,7 @@ import csv
 import io
 
 from app.crm.boldtrail import BoldTrailCRM
+from app.storage import leads_storage
 
 router = APIRouter()
 
@@ -135,9 +136,11 @@ async def import_leads_csv(file: UploadFile = File(...)):
             
             # Only import if we have at least name or email
             if lead_data.get('first_name') or lead_data.get('email'):
-                # TODO: Save to database
-                # For now, just count them
                 leads_imported.append(lead_data)
+        
+        # Save imported leads to storage
+        if leads_imported:
+            leads_storage.add_leads(leads_imported)
         
         return {
             "success": True,
@@ -157,39 +160,35 @@ async def get_leads(
     limit: int = 100
 ):
     """
-    Fetch leads from connected CRM
-    
-    For now, uses hardcoded BoldTrail credentials
-    TODO: Get from authenticated user's stored connection
+    Fetch leads - returns imported leads from storage
     """
     try:
-        # TODO: Get from database based on authenticated user
-        # For now, use the Zapier key that was provided
-        credentials = {
-            "zapier_key": "N2M3MTUzZjY3YTJmNjE0NDk0ZWI1ZDI3NTMwYTUwMjE6YS0yMDM0NDY2",
-            "api_key": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjIwMzQ0NjYsImlhdCI6MTc3MDMyNjcyOCwiZXhwIjoxODAxODYyNzI4LCJuYmYiOjE3NzAzMjY3MjgsImF1ZCI6IioiLCJhY3QiOjM3NywianRpIjoiOTc5OWZkN2MzMmNhNTI1NmM3NzIxY2FkNzdkZDZiNTAifQ.XoPrAddcLyV5t2xWnhZ1sU0EVe9FJccCkZD_VtG35HA"
-        }
+        # Get leads from in-memory storage
+        all_leads = leads_storage.get_all_leads()
         
-        crm = BoldTrailCRM(credentials)
+        # Filter by status if provided
+        if status:
+            filtered_leads = [l for l in all_leads if l.get('status', '').lower() == status.lower()]
+        else:
+            filtered_leads = all_leads
         
-        # Fetch leads
-        statuses = [status] if status else None
-        leads = await crm.get_leads(statuses=statuses, limit=limit)
+        # Limit results
+        limited_leads = filtered_leads[:limit]
         
         # Convert to response format
         response_leads = []
-        for lead in leads:
+        for lead in limited_leads:
             response_leads.append(LeadResponse(
-                id=lead.crm_lead_id,
-                first_name=lead.first_name,
-                last_name=lead.last_name,
-                email=lead.email,
-                phone=lead.phone,
-                status=lead.status,
-                tags=lead.tags or [],
-                location=lead.location,
-                price_range_min=lead.price_range_min,
-                price_range_max=lead.price_range_max
+                id=lead.get('id', 'unknown'),
+                first_name=lead.get('first_name'),
+                last_name=lead.get('last_name'),
+                email=lead.get('email'),
+                phone=lead.get('phone'),
+                status=lead.get('status'),
+                tags=lead.get('tags', []),
+                location=lead.get('location'),
+                price_range_min=lead.get('price_min'),
+                price_range_max=lead.get('price_max')
             ))
         
         return {
@@ -204,29 +203,14 @@ async def get_leads(
 @router.get("/stats")
 async def get_lead_stats():
     """
-    Get lead statistics
+    Get lead statistics from imported leads
     """
     try:
-        credentials = {
-            "zapier_key": "N2M3MTUzZjY3YTJmNjE0NDk0ZWI1ZDI3NTMwYTUwMjE6YS0yMDM0NDY2",
-            "api_key": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjIwMzQ0NjYsImlhdCI6MTc3MDMyNjcyOCwiZXhwIjoxODAxODYyNzI4LCJuYmYiOjE3NzAzMjY3MjgsImF1ZCI6IjoiLCJhY3QiOjM3NywianRpIjoiOTc5OWZkN2MzMmNhNTI1NmM3NzIxY2FkNzdkZDZiNTAifQ.XoPrAddcLyV5t2xWnhZ1sU0EVe9FJccCkZD_VtG35HA"
-        }
-        
-        crm = BoldTrailCRM(credentials)
-        leads = await crm.get_leads(limit=1000)
-        
-        # Calculate stats
-        total = len(leads)
-        active = sum(1 for l in leads if l.status and 'active' in l.status.lower())
+        stats = leads_storage.get_stats()
         
         return {
             "success": True,
-            "stats": {
-                "total_leads": total,
-                "active_leads": active,
-                "new_today": 0,  # TODO: Filter by date
-                "response_rate": 0  # TODO: Calculate from messages
-            }
+            "stats": stats
         }
         
     except Exception as e:
