@@ -71,12 +71,15 @@ async def import_leads_csv(file: UploadFile = File(...)):
                     lead_data['email'] = row[key]
                     break
             
-            # Map phone
+            # Map phone - try multiple phone fields
+            phone_fields = ['cell phone 1', 'cell_phone_1', 'work phone', 'work_phone', 
+                          'home phone', 'home_phone', 'cell phone', 'mobile', 'phone']
             for key in row.keys():
-                key_lower = key.lower()
-                if 'phone' in key_lower or 'mobile' in key_lower or 'cell' in key_lower:
-                    lead_data['phone'] = row[key]
-                    break
+                key_lower = key.lower().replace(' ', '_')
+                if key_lower in phone_fields or 'phone' in key_lower or 'mobile' in key_lower or 'cell' in key_lower:
+                    if row[key].strip():  # Only use if not empty
+                        lead_data['phone'] = row[key]
+                        break
             
             # Map status
             for key in row.keys():
@@ -127,6 +130,25 @@ async def import_leads_csv(file: UploadFile = File(...)):
                     else:
                         lead_data['tags'] = [tags_str.strip()]
                     break
+            
+            # Map notes
+            for key in row.keys():
+                key_lower = key.lower()
+                if 'note' in key_lower or 'comment' in key_lower or 'description' in key_lower:
+                    lead_data['notes'] = row[key]
+                    break
+            
+            # Map additional BoldTrail fields
+            for key in row.keys():
+                key_lower = key.lower().replace(' ', '_')
+                if 'deal_type' in key_lower or 'dealtype' in key_lower:
+                    lead_data['deal_type'] = row[key]
+                elif 'source' in key_lower and 'agent' not in key_lower:
+                    lead_data['source'] = row[key]
+                elif 'rating' in key_lower:
+                    lead_data['rating'] = row[key]
+                elif 'business_type' in key_lower or 'businesstype' in key_lower:
+                    lead_data['business_type'] = row[key]
             
             # Set defaults
             if 'status' not in lead_data:
