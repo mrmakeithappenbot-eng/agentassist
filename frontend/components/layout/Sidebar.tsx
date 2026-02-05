@@ -8,11 +8,13 @@ import {
   MagnifyingGlassIcon,
   PhotoIcon,
   Cog6ToothIcon,
-  UserGroupIcon 
+  UserGroupIcon,
+  ArrowUpTrayIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Import Leads', href: '/settings/import', icon: ArrowUpTrayIcon },
   { name: 'Pending Approvals', href: '/dashboard/messages', icon: EnvelopeIcon, badge: true },
   { name: 'The Hunter', href: '/dashboard/hunter', icon: MagnifyingGlassIcon },
   { name: 'Listing Launchpad', href: '/dashboard/launchpad', icon: PhotoIcon },
