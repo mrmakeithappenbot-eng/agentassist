@@ -7,8 +7,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
+from passlib.context import CryptContext
 
 Base = declarative_base()
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
@@ -38,8 +42,14 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     first_name = Column(String)
     last_name = Column(String)
+    full_name = Column(String, nullable=True)  # Combined name for convenience
     role = Column(Enum(UserRole), default=UserRole.AGENT)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    
+    # Account status
+    is_active = Column(Boolean, default=True)
+    is_team_leader = Column(Boolean, default=False)
+    last_login = Column(DateTime, nullable=True)
     
     # Google Calendar Integration
     google_calendar_id = Column(String, nullable=True)
@@ -58,6 +68,29 @@ class User(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def verify_password(self, password: str) -> bool:
+        """Check if provided password matches hash"""
+        return pwd_context.verify(password, self.hashed_password)
+    
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """Hash a password"""
+        return pwd_context.hash(password)
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'email': self.email,
+            'full_name': self.full_name or f"{self.first_name or ''} {self.last_name or ''}".strip(),
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'is_active': self.is_active,
+            'is_team_leader': self.is_team_leader,
+            'role': self.role.value if self.role else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
 
 
 class Team(Base):
