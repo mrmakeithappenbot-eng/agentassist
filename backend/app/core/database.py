@@ -55,10 +55,13 @@ def init_db():
     Initialize database - create all tables
     Call this on startup
     """
-    from app.models import database  # Import all models
+    # Import all models to register them with Base
+    from app.models.database import Base as ModelsBase, User, Team, Task, TaskAssignment, MorningDigest, MarketStats
+    from app.models.leads import Base as LeadsBase, Lead
     
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
+    # Create all tables for both bases
+    ModelsBase.metadata.create_all(bind=engine)
+    LeadsBase.metadata.create_all(bind=engine)
     print("✅ Database tables created successfully")
 
 def reset_db():

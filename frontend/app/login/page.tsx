@@ -41,7 +41,16 @@ export default function LoginPage() {
         // Redirect to dashboard
         router.push('/dashboard');
       } else {
-        setError(data.detail || 'Login failed');
+        // Handle different error formats
+        if (typeof data.detail === 'string') {
+          setError(data.detail);
+        } else if (Array.isArray(data.detail)) {
+          // Pydantic validation errors
+          const errors = data.detail.map((err: any) => err.msg).join(', ');
+          setError(errors);
+        } else {
+          setError('Login failed. Please check your credentials.');
+        }
       }
     } catch (err) {
       setError('Network error. Please try again.');

@@ -55,7 +55,16 @@ export default function SignupPage() {
         // Redirect to dashboard
         router.push('/dashboard');
       } else {
-        setError(data.detail || 'Registration failed');
+        // Handle different error formats
+        if (typeof data.detail === 'string') {
+          setError(data.detail);
+        } else if (Array.isArray(data.detail)) {
+          // Pydantic validation errors
+          const errors = data.detail.map((err: any) => err.msg).join(', ');
+          setError(errors);
+        } else {
+          setError('Registration failed. Please try again.');
+        }
       }
     } catch (err) {
       setError('Network error. Please try again.');

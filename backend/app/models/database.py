@@ -3,13 +3,13 @@ Database Models for AgentAssist Team Calendar System
 """
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Text, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 from passlib.context import CryptContext
 
-Base = declarative_base()
+# Import shared Base from database.py
+from app.core.database import Base
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
