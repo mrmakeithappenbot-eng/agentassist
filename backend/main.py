@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.routes import auth, crm, messages, social, webhooks
 from app.api.routes import leads as leads_routes
+from app.api.routes import tasks, digest
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,6 +44,8 @@ app.include_router(leads_routes.router, prefix="/api/leads", tags=["Leads"])
 app.include_router(messages.router, prefix="/api/messages", tags=["Messages"])
 app.include_router(social.router, prefix="/api/social", tags=["Social Media"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
+app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks & Calendar"])
+app.include_router(digest.router, prefix="/api/digest", tags=["Morning Digest"])
 
 @app.get("/")
 async def root():
