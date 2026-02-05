@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ExclamationTriangleIcon, 
@@ -12,6 +12,34 @@ import {
 export default function Dashboard() {
   const [pendingCount] = useState(3);
   const [hunterLeads] = useState(12);
+  const [activeLeads, setActiveLeads] = useState(0);
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch real lead stats from backend
+  useEffect(() => {
+    const fetchLeadStats = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/api/leads/stats`);
+        const data = await response.json();
+        
+        if (data.success && data.stats) {
+          setActiveLeads(data.stats.active_leads);
+          setTotalLeads(data.stats.total_leads);
+        }
+      } catch (error) {
+        console.error('Failed to fetch lead stats:', error);
+        // Keep demo data on error
+        setActiveLeads(47);
+        setTotalLeads(47);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchLeadStats();
+  }, []);
   
   return (
     <div className="p-6 md:p-8">
@@ -50,13 +78,15 @@ export default function Dashboard() {
       
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard 
-          title="Active Leads"
-          value="47"
-          change="+12%"
-          icon={ArrowTrendingUpIcon}
-          positive
-        />
+        <Link href="/dashboard/leads">
+          <StatCard 
+            title="Active Leads"
+            value={loading ? '...' : activeLeads.toString()}
+            change={totalLeads > 0 ? `${totalLeads} total` : '+12%'}
+            icon={ArrowTrendingUpIcon}
+            positive
+          />
+        </Link>
         <StatCard 
           title="Messages Sent (24h)"
           value="18"
