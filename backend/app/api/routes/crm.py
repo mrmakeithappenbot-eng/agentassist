@@ -29,45 +29,24 @@ async def connect_crm(request: CRMConnectRequest):
     try:
         # Only BoldTrail is implemented for now
         if request.provider.lower() == "boldtrail":
-            # Validate API token format (JWT)
-            api_key = request.credentials.get("api_key", "")
+            # Create BoldTrail handler with credentials
+            crm = BoldTrailCRM(request.credentials)
             
-            if not api_key or len(api_key) < 20:
+            # Validate connection
+            is_valid = await crm.validate_connection()
+            
+            if not is_valid:
                 return {
                     "success": False,
-                    "error": "Invalid API key format"
+                    "error": "Invalid BoldTrail credentials or connection failed"
                 }
             
-            # For now, accept any valid-looking JWT token
-            # TODO: Implement full kvCore API validation once we have docs
-            if api_key.startswith("eyJ"):  # JWT tokens start with eyJ
-                # Store the connection (TODO: encrypt and save to database)
-                return {
-                    "success": True,
-                    "message": f"Successfully connected to {request.provider}",
-                    "connection_id": "boldtrail-connection",
-                    "note": "Connection saved. Live sync coming soon!"
-                }
+            # TODO: Encrypt and store credentials in database
             
-            # If they want full validation, try it
-            try:
-                crm = BoldTrailCRM(request.credentials)
-                is_valid = await crm.validate_connection()
-                
-                if is_valid:
-                    return {
-                        "success": True,
-                        "message": f"Successfully connected to {request.provider}",
-                        "connection_id": "boldtrail-connection"
-                    }
-            except:
-                pass
-            
-            # Default: accept the token and let them proceed
             return {
                 "success": True,
-                "message": "BoldTrail API token saved (validation pending)",
-                "connection_id": "boldtrail-pending"
+                "message": f"Successfully connected to {request.provider}",
+                "connection_id": "boldtrail-connection"
             }
         else:
             return {

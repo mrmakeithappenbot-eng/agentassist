@@ -94,31 +94,35 @@ class BoldTrailCRM(CRM_Handler):
         limit: int = 100
     ) -> List[CRMLead]:
         """
-        Fetch leads from BoldTrail
-        
-        Note: Adjust the API endpoint and response parsing based on 
-        actual BoldTrail API documentation
+        Fetch leads from BoldTrail via Zapier export endpoint
         """
         try:
             async with httpx.AsyncClient() as client:
-                params = {
-                    "limit": limit,
-                    "sort": "-created_at"
-                }
-                
-                # Add filters if provided
-                if statuses:
-                    params["status"] = ",".join(statuses)
-                
-                if tags:
-                    params["tags"] = ",".join(tags)
-                
-                response = await client.get(
-                    f"{self.BASE_URL}/public/leads",
-                    headers=self.headers,
-                    params=params,
-                    timeout=30.0
-                )
+                # Use Zapier export endpoint if available (simplest method)
+                if self.zapier_key:
+                    response = await client.get(
+                        f"{self.EXPORT_BASE_URL}/leads/{self.zapier_key}/1",
+                        timeout=30.0
+                    )
+                else:
+                    # Fall back to OAuth API with JWT token
+                    params = {
+                        "limit": limit,
+                        "sort": "-created_at"
+                    }
+                    
+                    if statuses:
+                        params["status"] = ",".join(statuses)
+                    
+                    if tags:
+                        params["tags"] = ",".join(tags)
+                    
+                    response = await client.get(
+                        f"{self.BASE_URL}/public/leads",
+                        headers=self.headers,
+                        params=params,
+                        timeout=30.0
+                    )
                 
                 if response.status_code != 200:
                     print(f"BoldTrail API error: {response.status_code} - {response.text}")
@@ -127,8 +131,10 @@ class BoldTrailCRM(CRM_Handler):
                 data = response.json()
                 leads = []
                 
-                # Parse contacts (adjust based on actual API structure)
-                for contact in data.get("contacts", []):
+                # Parse response - Zapier export returns array directly
+                contacts_data = data if isinstance(data, list) else data.get("contacts", data.get("leads", []))
+                
+                for contact in contacts_data:
                     lead = self._map_contact_to_lead(contact)
                     
                     # Filter by status if provided

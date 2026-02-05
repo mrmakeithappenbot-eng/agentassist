@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
-from app.api.routes import auth, crm, leads, messages, social, webhooks
+from app.api.routes import auth, crm, messages, social, webhooks
+from app.api.routes import leads as leads_routes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,7 +39,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(crm.router, prefix="/api/crm", tags=["CRM"])
-app.include_router(leads.router, prefix="/api/leads", tags=["Leads"])
+app.include_router(leads_routes.router, prefix="/api/leads", tags=["Leads"])
 app.include_router(messages.router, prefix="/api/messages", tags=["Messages"])
 app.include_router(social.router, prefix="/api/social", tags=["Social Media"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
