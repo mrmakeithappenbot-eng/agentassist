@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
+from app.core.database import init_db
 from app.api.routes import auth, crm, messages, social, webhooks
 from app.api.routes import leads as leads_routes
 from app.api.routes import tasks, digest
@@ -17,7 +18,16 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     # Startup
     print(f"🚀 AgentAssist API starting on {settings.ENVIRONMENT} environment")
+    
+    # Initialize database tables
+    try:
+        init_db()
+        print("✅ Database initialized")
+    except Exception as e:
+        print(f"⚠️ Database initialization warning: {e}")
+    
     yield
+    
     # Shutdown
     print("👋 AgentAssist API shutting down")
 

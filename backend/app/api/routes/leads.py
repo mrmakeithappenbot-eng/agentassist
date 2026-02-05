@@ -3,14 +3,17 @@ Leads API Routes
 Fetch and manage leads from connected CRM
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 from typing import List, Optional
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 import csv
 import io
 
 from app.crm.boldtrail import BoldTrailCRM
 from app.storage import leads_storage
+from app.core.database import get_db
+from app.models.leads import Lead
 
 router = APIRouter()
 
@@ -27,7 +30,7 @@ class LeadResponse(BaseModel):
     price_range_max: Optional[int]
 
 @router.post("/import")
-async def import_leads_csv(file: UploadFile = File(...)):
+async def import_leads_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
     Import leads from CSV file
     
@@ -158,11 +161,30 @@ async def import_leads_csv(file: UploadFile = File(...)):
             
             # Only import if we have at least name or email
             if lead_data.get('first_name') or lead_data.get('email'):
+                # Save to database
+                db_lead = Lead(
+                    first_name=lead_data.get('first_name'),
+                    last_name=lead_data.get('last_name'),
+                    email=lead_data.get('email'),
+                    phone=lead_data.get('phone'),
+                    status=lead_data.get('status', 'New'),
+                    tags=lead_data.get('tags', []),
+                    location=lead_data.get('location'),
+                    price_min=lead_data.get('price_min'),
+                    price_max=lead_data.get('price_max'),
+                    notes=lead_data.get('notes'),
+                    deal_type=lead_data.get('deal_type'),
+                    source=lead_data.get('source'),
+                    rating=lead_data.get('rating'),
+                    business_type=lead_data.get('business_type'),
+                    imported_from='CSV'
+                )
+                db.add(db_lead)
                 leads_imported.append(lead_data)
         
-        # Save imported leads to storage
+        # Commit all leads to database
         if leads_imported:
-            leads_storage.add_leads(leads_imported)
+            db.commit()
         
         return {
             "success": True,
@@ -179,38 +201,40 @@ async def import_leads_csv(file: UploadFile = File(...)):
 @router.get("/")
 async def get_leads(
     status: Optional[str] = None,
-    limit: int = 100
+    limit: int = 100,
+    db: Session = Depends(get_db)
 ):
     """
-    Fetch leads - returns imported leads from storage
+    Fetch leads from database
     """
     try:
-        # Get leads from in-memory storage
-        all_leads = leads_storage.get_all_leads()
+        # Query database
+        query = db.query(Lead)
         
         # Filter by status if provided
         if status:
-            filtered_leads = [l for l in all_leads if l.get('status', '').lower() == status.lower()]
-        else:
-            filtered_leads = all_leads
+            query = query.filter(Lead.status.ilike(f"%{status}%"))
+        
+        # Order by most recent first
+        query = query.order_by(Lead.created_at.desc())
         
         # Limit results
-        limited_leads = filtered_leads[:limit]
+        leads = query.limit(limit).all()
         
         # Convert to response format
         response_leads = []
-        for lead in limited_leads:
+        for lead in leads:
             response_leads.append(LeadResponse(
-                id=lead.get('id', 'unknown'),
-                first_name=lead.get('first_name'),
-                last_name=lead.get('last_name'),
-                email=lead.get('email'),
-                phone=lead.get('phone'),
-                status=lead.get('status'),
-                tags=lead.get('tags', []),
-                location=lead.get('location'),
-                price_range_min=lead.get('price_min'),
-                price_range_max=lead.get('price_max')
+                id=str(lead.id),
+                first_name=lead.first_name,
+                last_name=lead.last_name,
+                email=lead.email,
+                phone=lead.phone,
+                status=lead.status,
+                tags=lead.tags or [],
+                location=lead.location,
+                price_range_min=lead.price_min,
+                price_range_max=lead.price_max
             ))
         
         return {
@@ -223,16 +247,27 @@ async def get_leads(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/stats")
-async def get_lead_stats():
+async def get_lead_stats(db: Session = Depends(get_db)):
     """
-    Get lead statistics from imported leads
+    Get lead statistics from database
     """
     try:
-        stats = leads_storage.get_stats()
+        # Count total leads
+        total = db.query(Lead).count()
+        
+        # Count active leads
+        active = db.query(Lead).filter(
+            Lead.status.in_(['Active', 'New', 'active', 'new'])
+        ).count()
         
         return {
             "success": True,
-            "stats": stats
+            "stats": {
+                "total_leads": total,
+                "active_leads": active,
+                "new_today": 0,  # TODO: Filter by date
+                "response_rate": 0
+            }
         }
         
     except Exception as e:
