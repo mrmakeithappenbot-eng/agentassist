@@ -4,10 +4,10 @@ Persistent storage for imported leads
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, JSON, Text, Boolean
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
-Base = declarative_base()
+# Import shared Base from database.py
+from app.core.database import Base
 
 class Lead(Base):
     __tablename__ = "leads"

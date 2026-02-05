@@ -56,12 +56,11 @@ def init_db():
     Call this on startup
     """
     # Import all models to register them with Base
-    from app.models.database import Base as ModelsBase, User, Team, Task, TaskAssignment, MorningDigest, MarketStats
-    from app.models.leads import Base as LeadsBase, Lead
+    from app.models.database import User, Team, Task, TaskAssignment, MorningDigest, MarketStats
+    from app.models.leads import Lead
     
-    # Create all tables for both bases
-    ModelsBase.metadata.create_all(bind=engine)
-    LeadsBase.metadata.create_all(bind=engine)
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
     print("✅ Database tables created successfully")
 
 def reset_db():
@@ -69,7 +68,9 @@ def reset_db():
     Drop and recreate all tables (USE WITH CAUTION!)
     Only for development
     """
-    from app.models import database
+    # Import all models
+    from app.models.database import User, Team, Task, TaskAssignment, MorningDigest, MarketStats
+    from app.models.leads import Lead
     
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
