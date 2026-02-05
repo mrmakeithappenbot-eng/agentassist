@@ -7,14 +7,16 @@ python-multipart==0.0.6
 asyncpg==0.29.0
 sqlalchemy==2.0.25
 alembic==1.13.1
+psycopg2-binary==2.9.9
 
 # Security & Auth
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
 cryptography==42.0.0
+pyjwt==2.8.0
 
-# OAuth & HTTP
+# OAuth
 authlib==1.3.0
 httpx==0.26.0
 
