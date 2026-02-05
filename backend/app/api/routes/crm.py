@@ -5,14 +5,18 @@ Handles CRM connection, validation, and sync operations
 
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any
+from pydantic import BaseModel
+
+from app.crm.boldtrail import BoldTrailCRM
 
 router = APIRouter()
 
-@router.post("/connect")
-async def connect_crm(
-    provider: str,
+class CRMConnectRequest(BaseModel):
+    provider: str
     credentials: Dict[str, Any]
-):
+
+@router.post("/connect")
+async def connect_crm(request: CRMConnectRequest):
     """
     Connect a CRM provider
     
@@ -22,18 +26,44 @@ async def connect_crm(
     3. Store encrypted credentials + IV in database
     4. Return success + connection ID
     """
-    # TODO: Implement
-    #   - Import CRMFactory
-    #   - Create handler and validate_connection()
-    #   - Encrypt credentials
-    #   - Store in crm_connections table
-    #   - Return {"success": True, "connection_id": "..."}
-    
-    return {
-        "success": True,
-        "message": f"Connected to {provider}",
-        "connection_id": "placeholder-uuid"
-    }
+    try:
+        # Only BoldTrail is implemented for now
+        if request.provider.lower() == "boldtrail":
+            # Create BoldTrail handler
+            crm = BoldTrailCRM(request.credentials)
+            
+            # Validate connection
+            is_valid = await crm.validate_connection()
+            
+            if not is_valid:
+                return {
+                    "success": False,
+                    "error": "Invalid BoldTrail API key or connection failed"
+                }
+            
+            # TODO: Encrypt and store credentials in database
+            
+            return {
+                "success": True,
+                "message": f"Successfully connected to {request.provider}",
+                "connection_id": "boldtrail-connection"
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"CRM provider '{request.provider}' not yet implemented"
+            }
+            
+    except ValueError as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Connection error: {str(e)}"
+        }
 
 @router.get("/status")
 async def get_crm_status():
