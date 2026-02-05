@@ -1,6 +1,20 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { isAuthenticated } from '@/lib/auth';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // If already logged in, redirect to dashboard
+    if (isAuthenticated()) {
+      router.push('/dashboard');
+    }
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex items-center justify-center p-4">
       <div className="max-w-4xl mx-auto text-center text-white">
@@ -17,16 +31,16 @@ export default function Home() {
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
-            href="/dashboard"
+            href="/signup"
             className="bg-white text-primary-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-primary-50 transition-colors"
           >
-            Go to Dashboard
+            Get Started Free
           </Link>
           <Link
-            href="/settings/crm"
+            href="/login"
             className="bg-primary-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-primary-500 transition-colors border border-primary-500"
           >
-            Connect Your CRM
+            Sign In
           </Link>
         </div>
         

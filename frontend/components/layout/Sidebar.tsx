@@ -9,8 +9,10 @@ import {
   PhotoIcon,
   Cog6ToothIcon,
   UserGroupIcon,
-  ArrowUpTrayIcon
+  ArrowUpTrayIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
+import { logout, getUser } from '@/lib/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -24,6 +26,11 @@ const navigation = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const user = getUser();
+  
+  const userInitials = user?.full_name
+    ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : user?.email?.[0].toUpperCase() || '?';
   
   return (
     <div className="flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
@@ -60,20 +67,27 @@ export default function Sidebar() {
         })}
       </nav>
       
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
         <div className="flex items-center">
           <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold">
-            RA
+            {userInitials}
           </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Real Agent
+          <div className="ml-3 flex-1">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+              {user?.full_name || user?.email || 'User'}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Pro Plan
+              {user?.is_team_leader ? 'Team Leader' : 'Agent'}
             </p>
           </div>
         </div>
+        <button
+          onClick={logout}
+          className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          <ArrowRightOnRectangleIcon className="w-5 h-5 mr-3" />
+          Logout
+        </button>
       </div>
     </div>
   );
