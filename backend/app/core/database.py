@@ -56,7 +56,7 @@ def init_db():
     Call this on startup
     """
     # Import all models to register them with Base
-    from app.models.database import User, Team, Task, TaskAssignment, MorningDigest, MarketStats
+    from app.models.user import User
     from app.models.leads import Lead
     
     # Create all tables

@@ -1,30 +1,28 @@
 """
-Authentication API Routes
-User registration, login, and profile management
+Authentication API Routes with Database
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.security import create_access_token, verify_token, hash_password, verify_password
-from app.models.database import User
+from app.models.user import User
 
 router = APIRouter()
 security = HTTPBearer()
 
 # Request/Response Models
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     full_name: Optional[str] = None
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class TokenResponse(BaseModel):
@@ -32,33 +30,36 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: dict
 
-class UserResponse(BaseModel):
-    id: int
-    email: str
-    full_name: Optional[str]
-    is_team_leader: bool
-    created_at: str
+# Simple token generation (user_id based)
+def create_token(user_id: int) -> str:
+    """Create a simple token from user ID"""
+    return f"token_{user_id}"
 
-# Dependency to get current user from JWT token
+def verify_token(token: str) -> Optional[int]:
+    """Verify token and return user ID"""
+    if token.startswith("token_"):
+        try:
+            return int(token.split("_")[1])
+        except:
+            return None
+    return None
+
+# Dependency to get current user from token
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """
-    Get current user from JWT token
-    Use as dependency in protected routes
-    """
+    """Get current user from token"""
     token = credentials.credentials
-    email = verify_token(token)
+    user_id = verify_token(token)
     
-    if not email:
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Invalid authentication credentials"
         )
     
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,14 +70,7 @@ async def get_current_user(
 
 @router.post("/register", response_model=TokenResponse)
 async def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    """
-    Register a new user
-    
-    Creates account and returns JWT token
-    """
-    # Ensure tables exist
-    from app.core.database import Base, engine
-    Base.metadata.create_all(bind=engine)
+    """Register a new user"""
     
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == request.email).first()
@@ -87,11 +81,10 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
         )
     
     # Create new user
-    hashed_pw = hash_password(request.password)
     new_user = User(
         email=request.email,
+        hashed_password=User.hash_password(request.password),
         full_name=request.full_name,
-        hashed_password=hashed_pw,
         is_active=True,
         created_at=datetime.utcnow()
     )
@@ -101,7 +94,7 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     db.refresh(new_user)
     
     # Create access token
-    access_token = create_access_token(data={"sub": new_user.email})
+    access_token = create_token(new_user.id)
     
     return {
         "access_token": access_token,
@@ -111,11 +104,8 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 async def login(request: LoginRequest, db: Session = Depends(get_db)):
-    """
-    Login user
+    """Login user"""
     
-    Verifies credentials and returns JWT token
-    """
     # Find user
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
@@ -125,7 +115,7 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
         )
     
     # Verify password
-    if not verify_password(request.password, user.hashed_password):
+    if not user.verify_password(request.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -143,7 +133,7 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     db.commit()
     
     # Create access token
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_token(user.id)
     
     return {
         "access_token": access_token,
@@ -151,17 +141,7 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
         "user": user.to_dict()
     }
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me")
 async def get_current_user_profile(current_user: User = Depends(get_current_user)):
-    """
-    Get current user profile
-    
-    Requires valid JWT token in Authorization header
-    """
-    return UserResponse(
-        id=current_user.id,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        is_team_leader=current_user.is_team_leader,
-        created_at=current_user.created_at.isoformat() if current_user.created_at else ""
-    )
+    """Get current user profile"""
+    return current_user.to_dict()
