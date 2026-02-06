@@ -74,6 +74,10 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     
     Creates account and returns JWT token
     """
+    # Ensure tables exist
+    from app.core.database import Base, engine
+    Base.metadata.create_all(bind=engine)
+    
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:

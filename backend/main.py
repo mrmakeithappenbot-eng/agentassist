@@ -19,12 +19,8 @@ async def lifespan(app: FastAPI):
     # Startup
     print(f"🚀 AgentAssist API starting on {settings.ENVIRONMENT} environment")
     
-    # Initialize database tables
-    try:
-        init_db()
-        print("✅ Database initialized")
-    except Exception as e:
-        print(f"⚠️ Database initialization warning: {e}")
+    # Skip database initialization for now - will create tables on first use
+    print("✅ Skipping database initialization")
     
     yield
     
