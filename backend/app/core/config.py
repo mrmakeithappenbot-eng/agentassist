@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
     # Database
-    DATABASE_URL: str = "sqlite:///./agentassist.db"  # SQLite for now (switch to PostgreSQL later)
+    DATABASE_URL: str = "sqlite:///./agentassist_v2.db"  # New database file to force reset
     
     # CORS
     CORS_ORIGINS: List[str] = [

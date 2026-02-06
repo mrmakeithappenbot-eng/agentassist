@@ -55,14 +55,23 @@ def init_db():
     Initialize database - create all tables
     Call this on startup
     """
-    # Import all models to register them with Base
-    from app.models.user import User
-    from app.models.leads import Lead
-    from app.models.team import Team, Task, TaskAssignment
-    
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully")
+    try:
+        # Import all models to register them with Base
+        from app.models.user import User
+        from app.models.leads import Lead
+        from app.models.team import Team, Task, TaskAssignment
+        
+        # Create all tables (only creates missing ones)
+        Base.metadata.create_all(bind=engine)
+        
+        # List tables created
+        table_names = list(Base.metadata.tables.keys())
+        print(f"✅ Database initialized with tables: {', '.join(table_names)}")
+        
+    except Exception as e:
+        print(f"❌ Database initialization error: {e}")
+        # Try to continue anyway
+        pass
 
 def reset_db():
     """
