@@ -36,6 +36,8 @@ export default function TeamPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLeader, setIsLeader] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [performance, setPerformance] = useState<any[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
   
   // Modal states
   const [showCreateTeam, setShowCreateTeam] = useState(false);
@@ -73,6 +75,20 @@ export default function TeamPage() {
         const tasksData = await tasksResponse.json();
         if (tasksData.success) {
           setTasks(tasksData.tasks || []);
+        }
+        
+        // Load performance metrics
+        const perfResponse = await fetchWithAuth(`${apiUrl}/api/team-leads/team-performance`);
+        const perfData = await perfResponse.json();
+        if (perfData.success) {
+          setPerformance(perfData.performance || []);
+        }
+        
+        // Load activity feed
+        const activityResponse = await fetchWithAuth(`${apiUrl}/api/team-leads/team-activity`);
+        const activityData = await activityResponse.json();
+        if (activityData.success) {
+          setActivity(activityData.activity || []);
         }
       }
       
@@ -309,6 +325,62 @@ export default function TeamPage() {
             <p className="text-gray-600 dark:text-gray-400">{team.description}</p>
           )}
         </div>
+        
+        {/* Performance Dashboard */}
+        {isLeader && performance.length > 0 && (
+          <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold mb-4">Team Performance</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Member</th>
+                    <th className="text-center py-2">Leads</th>
+                    <th className="text-center py-2">Completed</th>
+                    <th className="text-center py-2">Pending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {performance.map((member) => (
+                    <tr key={member.user_id} className="border-b">
+                      <td className="py-3">
+                        <div>
+                          <p className="font-medium">{member.name}</p>
+                          {member.is_leader && (
+                            <span className="text-xs text-primary-600">Leader</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-center">{member.assigned_leads}</td>
+                      <td className="text-center text-green-600">{member.completed_tasks}</td>
+                      <td className="text-center text-yellow-600">{member.pending_tasks}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        
+        {/* Activity Feed */}
+        {activity.length > 0 && (
+          <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold mb-4">Recent Activity</h2>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {activity.map((item, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="w-2 h-2 mt-2 rounded-full bg-primary-600"></div>
+                  <div className="flex-1">
+                    <p className="text-sm">{item.message}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Team Members */}
