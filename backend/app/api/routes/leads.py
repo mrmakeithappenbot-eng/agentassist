@@ -271,15 +271,12 @@ async def get_leads(
     Fetch leads from database
     """
     try:
-        # Query database
+        # Query database with simpler approach
         query = db.query(Lead)
         
         # Filter by status if provided
         if status:
             query = query.filter(Lead.status.ilike(f"%{status}%"))
-        
-        # Order by most recent first
-        query = query.order_by(Lead.created_at.desc())
         
         # Limit results
         leads = query.limit(limit).all()
@@ -307,7 +304,13 @@ async def get_leads(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return empty list on error instead of crashing
+        return {
+            "success": False,
+            "count": 0,
+            "leads": [],
+            "error": str(e)
+        }
 
 @router.get("/stats")
 async def get_lead_stats(db: Session = Depends(get_db)):
