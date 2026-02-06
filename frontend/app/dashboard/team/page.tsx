@@ -49,6 +49,7 @@ export default function TeamPage() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [taskType, setTaskType] = useState('optional');
+  const [error, setError] = useState('');
   
   useEffect(() => {
     loadTeamData();
@@ -83,8 +84,18 @@ export default function TeamPage() {
   };
   
   const handleCreateTeam = async () => {
+    console.log('Creating team...', { teamName, teamDescription });
+    setError('');
+    
+    if (!teamName.trim()) {
+      setError('Team name is required');
+      return;
+    }
+    
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      console.log('API URL:', apiUrl);
+      
       const response = await fetchWithAuth(`${apiUrl}/api/teams/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,13 +105,21 @@ export default function TeamPage() {
         })
       });
       
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
+      
       if (data.success) {
         setShowCreateTeam(false);
+        setTeamName('');
+        setTeamDescription('');
         loadTeamData();
+      } else {
+        setError(data.detail || 'Failed to create team');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating team:', error);
+      setError(error.message || 'Network error. Please try again.');
     }
   };
   
@@ -226,6 +245,13 @@ export default function TeamPage() {
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
                 <h3 className="text-xl font-bold mb-4">Create Team</h3>
+                
+                {error && (
+                  <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+                    {error}
+                  </div>
+                )}
+                
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-2">Team Name</label>
