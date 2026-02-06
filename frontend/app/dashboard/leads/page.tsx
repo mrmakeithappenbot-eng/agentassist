@@ -8,7 +8,10 @@ import {
   MapPinIcon,
   TagIcon,
   PlusIcon,
-  XMarkIcon
+  XMarkIcon,
+  PencilIcon,
+  TrashIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 
 interface Lead {
@@ -29,6 +32,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -62,6 +66,46 @@ export default function LeadsPage() {
     }
   };
 
+  const handleEdit = (lead: Lead) => {
+    setEditingLead(lead);
+    setFormData({
+      first_name: lead.first_name || '',
+      last_name: lead.last_name || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      status: lead.status || 'New',
+      location: lead.location || '',
+      price_min: lead.price_range_min ? String(lead.price_range_min) : '',
+      price_max: lead.price_range_max ? String(lead.price_range_max) : '',
+      notes: '',
+      tags: lead.tags ? lead.tags.join(', ') : ''
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (leadId: string) => {
+    if (!confirm('Are you sure you want to delete this lead?')) return;
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/leads/${leadId}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh leads
+        await fetchLeads();
+      } else {
+        alert('Failed to delete lead');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting lead');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -77,8 +121,14 @@ export default function LeadsPage() {
         tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
       };
       
-      const response = await fetch(`${apiUrl}/api/leads/create`, {
-        method: 'POST',
+      // Determine if creating or updating
+      const url = editingLead 
+        ? `${apiUrl}/api/leads/${editingLead.id}`
+        : `${apiUrl}/api/leads/create`;
+      const method = editingLead ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -102,15 +152,16 @@ export default function LeadsPage() {
           tags: ''
         });
         setShowModal(false);
+        setEditingLead(null);
         
         // Refresh leads
         await fetchLeads();
       } else {
-        alert('Failed to create lead: ' + (data.error || data.detail));
+        alert(`Failed to ${editingLead ? 'update' : 'create'} lead: ` + (data.error || data.detail));
       }
     } catch (err) {
       console.error(err);
-      alert('Error creating lead');
+      alert(`Error ${editingLead ? 'updating' : 'creating'} lead`);
     } finally {
       setSubmitting(false);
     }
@@ -154,7 +205,22 @@ export default function LeadsPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditingLead(null);
+            setFormData({
+              first_name: '',
+              last_name: '',
+              email: '',
+              phone: '',
+              status: 'New',
+              location: '',
+              price_min: '',
+              price_max: '',
+              notes: '',
+              tags: ''
+            });
+            setShowModal(true);
+          }}
           className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           <PlusIcon className="w-5 h-5 mr-2" />
@@ -230,7 +296,7 @@ export default function LeadsPage() {
 
               {/* Tags */}
               {lead.tags && lead.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-4">
                   {lead.tags.map((tag, idx) => (
                     <span
                       key={idx}
@@ -242,6 +308,26 @@ export default function LeadsPage() {
                   ))}
                 </div>
               )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => handleEdit(lead)}
+                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors"
+                  title="Edit lead"
+                >
+                  <PencilIcon className="w-4 h-4 mr-1" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(lead.id)}
+                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                  title="Delete lead"
+                >
+                  <TrashIcon className="w-4 h-4 mr-1" />
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -254,10 +340,13 @@ export default function LeadsPage() {
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Add New Lead
+                {editingLead ? 'Edit Lead' : 'Add New Lead'}
               </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingLead(null);
+                }}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <XMarkIcon className="w-6 h-6" />
@@ -412,7 +501,10 @@ export default function LeadsPage() {
               <div className="flex justify-end space-x-4 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingLead(null);
+                  }}
                   className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancel
@@ -422,7 +514,10 @@ export default function LeadsPage() {
                   disabled={submitting}
                   className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? 'Creating...' : 'Create Lead'}
+                  {submitting 
+                    ? (editingLead ? 'Updating...' : 'Creating...') 
+                    : (editingLead ? 'Update Lead' : 'Create Lead')
+                  }
                 </button>
               </div>
             </form>

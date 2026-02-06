@@ -26,6 +26,18 @@ class LeadCreate(BaseModel):
     price_max: Optional[int] = None
     notes: Optional[str] = None
 
+class LeadUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
+    tags: Optional[List[str]] = None
+    location: Optional[str] = None
+    price_min: Optional[int] = None
+    price_max: Optional[int] = None
+    notes: Optional[str] = None
+
 class LeadResponse(BaseModel):
     id: str
     first_name: Optional[str]
@@ -90,6 +102,122 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/{lead_id}")
+async def update_lead(lead_id: int, lead_update: LeadUpdate, db: Session = Depends(get_db)):
+    """
+    Update an existing lead
+    """
+    try:
+        # Find the lead
+        db_lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        if not db_lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
+        # Update only provided fields
+        if lead_update.first_name is not None:
+            db_lead.first_name = lead_update.first_name
+        if lead_update.last_name is not None:
+            db_lead.last_name = lead_update.last_name
+        if lead_update.email is not None:
+            db_lead.email = lead_update.email
+        if lead_update.phone is not None:
+            db_lead.phone = lead_update.phone
+        if lead_update.status is not None:
+            db_lead.status = lead_update.status
+        if lead_update.tags is not None:
+            db_lead.tags = lead_update.tags
+        if lead_update.location is not None:
+            db_lead.location = lead_update.location
+        if lead_update.price_min is not None:
+            db_lead.price_min = lead_update.price_min
+        if lead_update.price_max is not None:
+            db_lead.price_max = lead_update.price_max
+        if lead_update.notes is not None:
+            db_lead.notes = lead_update.notes
+        
+        db.commit()
+        db.refresh(db_lead)
+        
+        return {
+            "success": True,
+            "message": "Lead updated successfully",
+            "lead": LeadResponse(
+                id=str(db_lead.id),
+                first_name=db_lead.first_name,
+                last_name=db_lead.last_name,
+                email=db_lead.email,
+                phone=db_lead.phone,
+                status=db_lead.status,
+                tags=db_lead.tags or [],
+                location=db_lead.location,
+                price_range_min=db_lead.price_min,
+                price_range_max=db_lead.price_max
+            )
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{lead_id}")
+async def delete_lead(lead_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a lead
+    """
+    try:
+        # Find the lead
+        db_lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        if not db_lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
+        # Delete the lead
+        db.delete(db_lead)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Lead deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{lead_id}")
+async def get_lead(lead_id: int, db: Session = Depends(get_db)):
+    """
+    Get a single lead by ID
+    """
+    try:
+        db_lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        if not db_lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
+        return {
+            "success": True,
+            "lead": LeadResponse(
+                id=str(db_lead.id),
+                first_name=db_lead.first_name,
+                last_name=db_lead.last_name,
+                email=db_lead.email,
+                phone=db_lead.phone,
+                status=db_lead.status,
+                tags=db_lead.tags or [],
+                location=db_lead.location,
+                price_range_min=db_lead.price_min,
+                price_range_max=db_lead.price_max
+            )
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/import")
