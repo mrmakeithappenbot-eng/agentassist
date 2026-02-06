@@ -14,6 +14,18 @@ from app.models.leads import Lead
 
 router = APIRouter()
 
+class LeadCreate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = "New"
+    tags: List[str] = []
+    location: Optional[str] = None
+    price_min: Optional[int] = None
+    price_max: Optional[int] = None
+    notes: Optional[str] = None
+
 class LeadResponse(BaseModel):
     id: str
     first_name: Optional[str]
@@ -25,6 +37,60 @@ class LeadResponse(BaseModel):
     location: Optional[str]
     price_range_min: Optional[int]
     price_range_max: Optional[int]
+
+@router.post("/create")
+async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
+    """
+    Create a single lead manually
+    """
+    try:
+        # Validate at least one contact method
+        if not lead.email and not lead.phone and not lead.first_name:
+            raise HTTPException(
+                status_code=400, 
+                detail="Must provide at least first name, email, or phone"
+            )
+        
+        # Create lead in database
+        db_lead = Lead(
+            first_name=lead.first_name,
+            last_name=lead.last_name,
+            email=lead.email,
+            phone=lead.phone,
+            status=lead.status or 'New',
+            tags=lead.tags or [],
+            location=lead.location,
+            price_min=lead.price_min,
+            price_max=lead.price_max,
+            notes=lead.notes,
+            imported_from='Manual'
+        )
+        db.add(db_lead)
+        db.commit()
+        db.refresh(db_lead)
+        
+        return {
+            "success": True,
+            "message": "Lead created successfully",
+            "lead": LeadResponse(
+                id=str(db_lead.id),
+                first_name=db_lead.first_name,
+                last_name=db_lead.last_name,
+                email=db_lead.email,
+                phone=db_lead.phone,
+                status=db_lead.status,
+                tags=db_lead.tags or [],
+                location=db_lead.location,
+                price_range_min=db_lead.price_min,
+                price_range_max=db_lead.price_max
+            )
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/import")
 async def import_leads_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
