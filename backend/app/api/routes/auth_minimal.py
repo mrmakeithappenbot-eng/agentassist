@@ -4,7 +4,7 @@ TEMPORARY - Uses plain text passwords (INSECURE but gets it working)
 """
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -15,12 +15,12 @@ router = APIRouter()
 _users = {}
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: str  # Changed from EmailStr to avoid email-validator dependency
     password: str
     full_name: Optional[str] = None
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str  # Changed from EmailStr
     password: str
 
 class TokenResponse(BaseModel):
