@@ -2,7 +2,8 @@
 User Model for Database
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from passlib.context import CryptContext
 from app.core.database import Base
@@ -19,6 +20,10 @@ class User(Base):
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     is_team_leader = Column(Boolean, default=False)
+    
+    # Team relationship
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team = relationship("Team", foreign_keys=[team_id], back_populates="members")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)

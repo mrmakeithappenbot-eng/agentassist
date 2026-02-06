@@ -58,6 +58,7 @@ def init_db():
     # Import all models to register them with Base
     from app.models.user import User
     from app.models.leads import Lead
+    from app.models.team import Team, Task, TaskAssignment
     
     # Create all tables
     Base.metadata.create_all(bind=engine)
