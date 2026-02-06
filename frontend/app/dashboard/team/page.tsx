@@ -1,368 +1,482 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  UserGroupIcon, 
-  PlusIcon, 
+import { useState, useEffect } from 'react';
+import { fetchWithAuth } from '@/lib/auth';
+import {
+  UserGroupIcon,
+  PlusIcon,
   CheckCircleIcon,
   ClockIcon,
-  BellIcon,
-  ArrowPathIcon 
+  XCircleIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 
-// Mock team data
-const MOCK_TEAM_MEMBERS = [
-  {
-    id: 1,
-    name: 'Sarah Martinez',
-    email: 'sarah@agency.com',
-    phone: '(512) 555-0101',
-    role: 'Team Leader',
-    status: 'active',
-    leadsAssigned: 23,
-    leadsContacted: 18,
-    responseTime: '4 min avg',
-    availability: 'Available'
-  },
-  {
-    id: 2,
-    name: 'Mike Johnson',
-    email: 'mike@agency.com',
-    phone: '(512) 555-0102',
-    role: 'Agent',
-    status: 'active',
-    leadsAssigned: 19,
-    leadsContacted: 16,
-    responseTime: '6 min avg',
-    availability: 'Available'
-  },
-  {
-    id: 3,
-    name: 'Jessica Chen',
-    email: 'jessica@agency.com',
-    phone: '(512) 555-0103',
-    role: 'Agent',
-    status: 'busy',
-    leadsAssigned: 21,
-    leadsContacted: 19,
-    responseTime: '3 min avg',
-    availability: 'On Showing'
-  },
-  {
-    id: 4,
-    name: 'David Park',
-    email: 'david@agency.com',
-    phone: '(512) 555-0104',
-    role: 'Agent',
-    status: 'offline',
-    leadsAssigned: 15,
-    leadsContacted: 12,
-    responseTime: '8 min avg',
-    availability: 'Out of Office'
-  }
-];
+interface TeamMember {
+  id: number;
+  email: string;
+  full_name: string;
+  is_team_leader: boolean;
+}
 
-const MOCK_ROUTING_HISTORY = [
-  {
-    id: 1,
-    leadName: 'Robert Wilson',
-    assignedTo: 'Mike Johnson',
-    assignedAt: '2024-02-04 18:30:00',
-    status: 'contacted',
-    contactedAt: '2024-02-04 18:33:00',
-    responseTime: '3 min'
-  },
-  {
-    id: 2,
-    leadName: 'Emily Davis',
-    assignedTo: 'Jessica Chen',
-    assignedAt: '2024-02-04 17:45:00',
-    status: 'contacted',
-    contactedAt: '2024-02-04 17:46:00',
-    responseTime: '1 min'
-  },
-  {
-    id: 3,
-    leadName: 'James Brown',
-    assignedTo: 'Sarah Martinez',
-    assignedAt: '2024-02-04 17:20:00',
-    status: 're-assigned',
-    contactedAt: null,
-    responseTime: 'Timeout (5 min)',
-    reassignedTo: 'Mike Johnson'
-  },
-  {
-    id: 4,
-    leadName: 'Lisa Anderson',
-    assignedTo: 'David Park',
-    assignedAt: '2024-02-04 16:55:00',
-    status: 'contacted',
-    contactedAt: '2024-02-04 17:02:00',
-    responseTime: '7 min'
-  }
-];
+interface Task {
+  assignment_id?: number;
+  task: {
+    id: number;
+    title: string;
+    description: string;
+    task_type: string;
+    due_date: string | null;
+  };
+  status?: string;
+}
 
 export default function TeamPage() {
-  const [teamMembers] = useState(MOCK_TEAM_MEMBERS);
-  const [routingHistory] = useState(MOCK_ROUTING_HISTORY);
-  const [roundRobinEnabled, setRoundRobinEnabled] = useState(true);
-  const [responseTimeout, setResponseTimeout] = useState(5);
-  const [smsNotifications, setSmsNotifications] = useState(true);
+  const [team, setTeam] = useState<any>(null);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLeader, setIsLeader] = useState(false);
+  const [loading, setLoading] = useState(true);
   
-  const statusColors = {
-    active: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    busy: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    offline: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-  };
+  // Modal states
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [showInviteMember, setShowInviteMember] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
   
-  const historyStatusColors = {
-    contacted: 'bg-green-100 text-green-800',
-    're-assigned': 'bg-yellow-100 text-yellow-800',
-    timeout: 'bg-red-100 text-red-800'
-  };
+  // Form states
+  const [teamName, setTeamName] = useState('');
+  const [teamDescription, setTeamDescription] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskType, setTaskType] = useState('optional');
   
-  return (
-    <div className="p-6 md:p-8">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center mb-4">
-          <UserGroupIcon className="w-8 h-8 text-primary-600 mr-3" />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Team Management
-          </h1>
-        </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          Manage your team and configure round-robin lead routing
-        </p>
-      </div>
+  useEffect(() => {
+    loadTeamData();
+  }, []);
+  
+  const loadTeamData = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       
-      {/* Round Robin Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Round Robin Settings
-        </h2>
+      // Load team info
+      const teamResponse = await fetchWithAuth(`${apiUrl}/api/teams/my-team`);
+      const teamData = await teamResponse.json();
+      
+      if (teamData.success && teamData.team) {
+        setTeam(teamData.team);
+        setMembers(teamData.members || []);
+        setIsLeader(teamData.is_leader);
         
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-gray-900 dark:text-white">Enable Round Robin</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Automatically distribute new leads among available team members
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={roundRobinEnabled}
-                onChange={(e) => setRoundRobinEnabled(e.target.checked)}
-                className="sr-only peer" 
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-            </label>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-gray-900 dark:text-white">SMS Notifications</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Send SMS alerts to agents when new leads are assigned
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={smsNotifications}
-                onChange={(e) => setSmsNotifications(e.target.checked)}
-                className="sr-only peer" 
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-            </label>
-          </div>
-          
-          <div>
-            <label className="block font-medium text-gray-900 dark:text-white mb-2">
-              Response Timeout (minutes)
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="3"
-                max="15"
-                value={responseTimeout}
-                onChange={(e) => setResponseTimeout(Number(e.target.value))}
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-              />
-              <span className="text-2xl font-bold text-primary-600 dark:text-primary-400 min-w-[60px] text-center">
-                {responseTimeout} min
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              If an agent doesn't respond within this time, the lead will be re-assigned to the next available agent
+        // Load tasks
+        const tasksResponse = await fetchWithAuth(`${apiUrl}/api/teams/tasks/my-tasks`);
+        const tasksData = await tasksResponse.json();
+        if (tasksData.success) {
+          setTasks(tasksData.tasks || []);
+        }
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading team:', error);
+      setLoading(false);
+    }
+  };
+  
+  const handleCreateTeam = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/teams/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: teamName,
+          description: teamDescription
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setShowCreateTeam(false);
+        loadTeamData();
+      }
+    } catch (error) {
+      console.error('Error creating team:', error);
+    }
+  };
+  
+  const handleInviteMember = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/teams/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail,
+          team_id: team.id
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setShowInviteMember(false);
+        setInviteEmail('');
+        loadTeamData();
+      }
+    } catch (error) {
+      console.error('Error inviting member:', error);
+    }
+  };
+  
+  const handleCreateTask = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/teams/tasks/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: taskTitle,
+          description: taskDescription,
+          task_type: taskType,
+          share_with_team: true
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setShowCreateTask(false);
+        setTaskTitle('');
+        setTaskDescription('');
+        loadTeamData();
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  };
+  
+  const handleUpdateTaskStatus = async (assignmentId: number, newStatus: string) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      await fetchWithAuth(`${apiUrl}/api/teams/tasks/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignment_id: assignmentId,
+          status: newStatus
+        })
+      });
+      
+      loadTeamData();
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+  
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'text-green-600 bg-green-50';
+      case 'accepted': return 'text-blue-600 bg-blue-50';
+      case 'declined': return 'text-red-600 bg-red-50';
+      default: return 'text-yellow-600 bg-yellow-50';
+    }
+  };
+  
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircleIcon className="w-5 h-5" />;
+      case 'declined': return <XCircleIcon className="w-5 h-5" />;
+      default: return <ClockIcon className="w-5 h-5" />;
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading team...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // No team - show create team option
+  if (!team) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
+            <UserGroupIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Create Your Team
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Start collaborating with your team members
             </p>
+            <button
+              onClick={() => setShowCreateTeam(true)}
+              className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Create Team
+            </button>
           </div>
-        </div>
-      </div>
-      
-      {/* Team Members */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Team Members ({teamMembers.length})
-          </h2>
-          <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2">
-            <PlusIcon className="w-5 h-5" />
-            Add Member
-          </button>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Member
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Performance
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {teamMembers.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold mr-3">
-                        {member.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {member.name}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {member.email}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-gray-900 dark:text-white">
-                      {member.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[member.status]}`}>
-                        {member.availability}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="space-y-1">
-                      <p className="text-gray-900 dark:text-white">
-                        <strong>{member.leadsAssigned}</strong> assigned
-                      </p>
-                      <p className="text-green-600 dark:text-green-400">
-                        <strong>{member.leadsContacted}</strong> contacted
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        {member.responseTime}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button className="text-sm text-primary-600 dark:text-primary-400 hover:underline">
-                      View Details
+          
+          {/* Create Team Modal */}
+          {showCreateTeam && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 className="text-xl font-bold mb-4">Create Team</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Team Name</label>
+                    <input
+                      type="text"
+                      value={teamName}
+                      onChange={(e) => setTeamName(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="My Real Estate Team"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Description (Optional)</label>
+                    <textarea
+                      value={teamDescription}
+                      onChange={(e) => setTeamDescription(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      rows={3}
+                      placeholder="What's your team about?"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCreateTeam}
+                      className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                    >
+                      Create
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <button
+                      onClick={() => setShowCreateTeam(false)}
+                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-      
-      {/* Routing History */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
-            <ArrowPathIcon className="w-6 h-6 mr-2" />
-            Recent Routing Activity
-          </h2>
+    );
+  }
+  
+  // Has team - show team dashboard
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {team.name}
+          </h1>
+          {team.description && (
+            <p className="text-gray-600 dark:text-gray-400">{team.description}</p>
+          )}
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Lead
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Assigned To
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Time
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Response Time
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {routingHistory.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {item.leadName}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {item.assignedTo}
-                      {item.status === 're-assigned' && (
-                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                          → Re-assigned to {item.reassignedTo}
-                        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Team Members */}
+          <div className="lg:col-span-1">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Team Members</h2>
+                {isLeader && (
+                  <button
+                    onClick={() => setShowInviteMember(true)}
+                    className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                {members.map(member => (
+                  <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold">
+                      {member.full_name?.[0] || member.email[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{member.full_name || member.email}</p>
+                      {member.is_team_leader && (
+                        <span className="text-xs text-primary-600">Team Leader</span>
                       )}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                    {item.assignedAt}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${historyStatusColors[item.status]}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className={`text-sm font-medium ${
-                      item.status === 're-assigned' 
-                        ? 'text-red-600 dark:text-red-400'
-                        : item.responseTime.includes('1 min') || item.responseTime.includes('3 min')
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-yellow-600 dark:text-yellow-400'
-                    }`}>
-                      {item.responseTime}
-                    </p>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Tasks */}
+          <div className="lg:col-span-2">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">My Tasks</h2>
+                {isLeader && (
+                  <button
+                    onClick={() => setShowCreateTask(true)}
+                    className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    <PlusIcon className="w-5 h-5 mr-2" />
+                    Create Task
+                  </button>
+                )}
+              </div>
+              
+              {tasks.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No tasks assigned yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {tasks.map(task => (
+                    <div key={task.assignment_id} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{task.task.title}</h3>
+                          {task.task.description && (
+                            <p className="text-gray-600 text-sm mt-1">{task.task.description}</p>
+                          )}
+                        </div>
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm ${getStatusColor(task.status || 'pending')}`}>
+                          {getStatusIcon(task.status || 'pending')}
+                          {task.status || 'pending'}
+                        </span>
+                      </div>
+                      
+                      {task.status === 'pending' && (
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={() => handleUpdateTaskStatus(task.assignment_id!, 'accepted')}
+                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleUpdateTaskStatus(task.assignment_id!, 'declined')}
+                            className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                      
+                      {task.status === 'accepted' && (
+                        <button
+                          onClick={() => handleUpdateTaskStatus(task.assignment_id!, 'completed')}
+                          className="w-full mt-3 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+                        >
+                          Mark Complete
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+        
+        {/* Invite Member Modal */}
+        {showInviteMember && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold mb-4">Invite Team Member</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="member@example.com"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">User must have an account to join</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleInviteMember}
+                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    Invite
+                  </button>
+                  <button
+                    onClick={() => setShowInviteMember(false)}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Create Task Modal */}
+        {showCreateTask && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold mb-4">Create Task</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Task Title</label>
+                  <input
+                    type="text"
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="Follow up with lead"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Description</label>
+                  <textarea
+                    value={taskDescription}
+                    onChange={(e) => setTaskDescription(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    rows={3}
+                    placeholder="Task details..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Type</label>
+                  <select
+                    value={taskType}
+                    onChange={(e) => setTaskType(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    <option value="optional">Optional</option>
+                    <option value="mandatory">Mandatory</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCreateTask}
+                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    Create
+                  </button>
+                  <button
+                    onClick={() => setShowCreateTask(false)}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
