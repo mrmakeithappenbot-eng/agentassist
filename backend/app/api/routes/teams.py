@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.models.user import User
-from app.models.team import Team, Task, TaskAssignment, TaskType, TaskStatus, TaskCategory
+from app.models.team_simple import Team, Task, TaskAssignment
 from app.api.routes.auth import get_current_user
 
 router = APIRouter()
@@ -178,8 +178,8 @@ async def create_task(
     new_task = Task(
         title=request.title,
         description=request.description,
-        task_type=TaskType(request.task_type),
-        task_category=TaskCategory(request.task_category),
+        task_type=request.task_type,
+        task_category=request.task_category,
         due_date=due_date,
         share_with_team=request.share_with_team,
         is_private=request.is_private,
@@ -229,7 +229,7 @@ async def assign_task(
             assignment = TaskAssignment(
                 task_id=request.task_id,
                 assignee_id=assignee_id,
-                status=TaskStatus.PENDING
+                status="pending"
             )
             db.add(assignment)
             assignments_created.append(assignee_id)
@@ -266,7 +266,7 @@ async def update_task_status(
         )
     
     # Update status
-    assignment.status = TaskStatus(request.status)
+    assignment.status = request.status
     assignment.responded_at = datetime.utcnow()
     
     if request.status == "completed":
@@ -368,12 +368,12 @@ async def get_team_dashboard(
     
     pending_assignments = db.query(TaskAssignment).join(Task).filter(
         Task.team_id == current_user.team_id,
-        TaskAssignment.status == TaskStatus.PENDING
+        TaskAssignment.status == "pending"
     ).count()
     
     completed_assignments = db.query(TaskAssignment).join(Task).filter(
         Task.team_id == current_user.team_id,
-        TaskAssignment.status == TaskStatus.COMPLETED
+        TaskAssignment.status == "completed"
     ).count()
     
     # Get lead stats

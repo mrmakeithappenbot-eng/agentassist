@@ -59,7 +59,7 @@ def init_db():
         # Import all models to register them with Base
         from app.models.user import User
         from app.models.leads import Lead
-        from app.models.team import Team, Task, TaskAssignment
+        from app.models.team_simple import Team, Task, TaskAssignment
         
         # Create all tables (only creates missing ones)
         Base.metadata.create_all(bind=engine)
@@ -70,6 +70,8 @@ def init_db():
         
     except Exception as e:
         print(f"❌ Database initialization error: {e}")
+        import traceback
+        traceback.print_exc()
         # Try to continue anyway
         pass
 
