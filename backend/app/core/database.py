@@ -59,6 +59,7 @@ def init_db():
         # Import all models to register them with Base
         from app.models.user import User
         from app.models.leads import Lead
+        from app.models.activity import LeadActivity
         from app.models.team_simple import Team, Task, TaskAssignment
         
         # Create all tables (only creates missing ones)

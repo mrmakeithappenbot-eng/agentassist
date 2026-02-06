@@ -11,8 +11,10 @@ import {
   XMarkIcon,
   PencilIcon,
   TrashIcon,
-  EyeIcon
+  EyeIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline';
+import { useRouter } from 'next/navigation';
 
 interface Lead {
   id: string;
@@ -28,6 +30,7 @@ interface Lead {
 }
 
 export default function LeadsPage() {
+  const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -312,8 +315,16 @@ export default function LeadsPage() {
               {/* Action Buttons */}
               <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
+                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  title="View details and activities"
+                >
+                  <EyeIcon className="w-4 h-4 mr-1" />
+                  View
+                </button>
+                <button
                   onClick={() => handleEdit(lead)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors"
+                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   title="Edit lead"
                 >
                   <PencilIcon className="w-4 h-4 mr-1" />
@@ -325,7 +336,6 @@ export default function LeadsPage() {
                   title="Delete lead"
                 >
                   <TrashIcon className="w-4 h-4 mr-1" />
-                  Delete
                 </button>
               </div>
             </div>

@@ -47,6 +47,7 @@ class Lead(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_contact_at = Column(DateTime, nullable=True)  # Last interaction date
     
     def to_dict(self):
         """Convert to dictionary for API responses"""
