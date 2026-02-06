@@ -1,6 +1,5 @@
 """
-Minimal Authentication - Works without any dependencies
-TEMPORARY - Uses plain text passwords (INSECURE but gets it working)
+Authentication API Routes - In-Memory Storage with Password Hashing
 """
 
 from fastapi import APIRouter, HTTPException, status
@@ -8,8 +7,12 @@ from pydantic import BaseModel
 from typing import Optional
 import uuid
 from datetime import datetime
+from passlib.context import CryptContext
 
 router = APIRouter()
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # In-memory storage
 _users = {}
@@ -39,11 +42,11 @@ async def register(request: RegisterRequest):
             detail="Email already registered"
         )
     
-    # Create user
+    # Create user with hashed password
     user = {
         'id': str(uuid.uuid4()),
         'email': request.email,
-        'password': request.password,  # Plain text for now (TEMPORARY)
+        'hashed_password': pwd_context.hash(request.password),
         'full_name': request.full_name,
         'is_team_leader': False,
         'is_active': True,
@@ -77,8 +80,8 @@ async def login(request: LoginRequest):
             detail="Incorrect email or password"
         )
     
-    # Check password (plain text comparison for now)
-    if user['password'] != request.password:
+    # Check password (verify against hash)
+    if not pwd_context.verify(request.password, user['hashed_password']):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"

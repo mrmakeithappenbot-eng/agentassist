@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.routes import test
 from app.api.routes import auth_minimal as auth
+from app.api.routes import leads as leads_routes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +39,7 @@ app.add_middleware(
 # Include routers
 app.include_router(test.router, prefix="/api/test", tags=["Test"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(leads_routes.router, prefix="/api/leads", tags=["Leads"])
 
 @app.get("/")
 async def root():
