@@ -3,7 +3,6 @@ Team Management Models
 """
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Text, JSON
-from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 from app.core.database import Base
@@ -34,9 +33,6 @@ class Team(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships
-    tasks = relationship("Task", back_populates="team")
-    
     def to_dict(self):
         return {
             'id': self.id,
@@ -64,13 +60,9 @@ class Task(Base):
     share_with_team = Column(Boolean, default=True)
     is_private = Column(Boolean, default=False)  # Only for team leaders
     
-    # Relationships
+    # Foreign keys (no relationships to avoid circular issues)
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
-    
-    creator = relationship("User", foreign_keys=[creator_id])
-    team = relationship("Team", back_populates="tasks")
-    assignments = relationship("TaskAssignment", back_populates="task", cascade="all, delete-orphan")
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -104,10 +96,6 @@ class TaskAssignment(Base):
     responded_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
-    
-    # Relationships
-    task = relationship("Task", back_populates="assignments")
-    assignee = relationship("User", foreign_keys=[assignee_id])
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
