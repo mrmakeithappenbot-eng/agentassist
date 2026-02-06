@@ -8,12 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
-from app.api.routes import test
-# Temporarily comment out problematic imports
-# from app.core.database import init_db
-# from app.api.routes import auth, crm, messages, social, webhooks
-# from app.api.routes import leads as leads_routes
-# from app.api.routes import tasks, digest
+from app.api.routes import test, leads as leads_routes
+from app.api.routes import auth_simple as auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,16 +35,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers (temporarily minimal for debugging)
+# Include routers
 app.include_router(test.router, prefix="/api/test", tags=["Test"])
-# app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-# app.include_router(crm.router, prefix="/api/crm", tags=["CRM"])
-# app.include_router(leads_routes.router, prefix="/api/leads", tags=["Leads"])
-# app.include_router(messages.router, prefix="/api/messages", tags=["Messages"])
-# app.include_router(social.router, prefix="/api/social", tags=["Social Media"])
-# app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
-# app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks & Calendar"])
-# app.include_router(digest.router, prefix="/api/digest", tags=["Morning Digest"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(leads_routes.router, prefix="/api/leads", tags=["Leads"])
 
 @app.get("/")
 async def root():
