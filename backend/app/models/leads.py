@@ -36,6 +36,10 @@ class Lead(Base):
     rating = Column(String, nullable=True)
     business_type = Column(String, nullable=True)
     
+    # Assignment
+    assigned_to = Column(Integer, nullable=True)  # User ID assigned to
+    assigned_at = Column(DateTime, nullable=True)
+    
     # Metadata
     imported_from = Column(String, default="CSV")  # CSV, API, Manual
     imported_by = Column(Integer, nullable=True)  # User ID who imported
