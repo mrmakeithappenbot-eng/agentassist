@@ -51,21 +51,28 @@ async def create_team(
 ):
     """Create a new team (user becomes team leader)"""
     
-    # Create team
-    new_team = Team(
-        name=request.name,
-        description=request.description,
-        leader_id=current_user.id
-    )
-    
-    db.add(new_team)
-    db.commit()
-    db.refresh(new_team)
-    
-    # Make user a team leader
-    current_user.is_team_leader = True
-    current_user.team_id = new_team.id
-    db.commit()
+    try:
+        # Create team
+        new_team = Team(
+            name=request.name,
+            description=request.description,
+            leader_id=current_user.id
+        )
+        
+        db.add(new_team)
+        db.commit()
+        db.refresh(new_team)
+        
+        # Make user a team leader
+        current_user.is_team_leader = True
+        current_user.team_id = new_team.id
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating team: {str(e)}"
+        )
     
     return {
         "success": True,
