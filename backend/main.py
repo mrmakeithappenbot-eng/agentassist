@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.api.routes import test, leads as leads_routes
-from app.api.routes import auth_simple as auth
+from app.api.routes import auth_minimal as auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
