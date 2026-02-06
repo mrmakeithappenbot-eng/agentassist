@@ -23,7 +23,6 @@ class User(Base):
     
     # Team relationship
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
-    team = relationship("Team", foreign_keys=[team_id], back_populates="members")
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)

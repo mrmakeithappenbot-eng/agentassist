@@ -35,8 +35,6 @@ class Team(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    leader = relationship("User", foreign_keys=[leader_id], backref="led_teams")
-    members = relationship("User", foreign_keys="User.team_id", back_populates="team")
     tasks = relationship("Task", back_populates="team")
     
     def to_dict(self):
