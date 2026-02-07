@@ -68,7 +68,7 @@ export default function CalendarPage() {
         return;
       }
 
-      const response = await fetch('/api/tasks/list', {
+      const response = await fetch(`${API_URL}/api/teams/tasks/my-tasks`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -169,7 +169,7 @@ export default function CalendarPage() {
     }
 
     try {
-      const response = await fetch('/api/tasks/create', {
+      const response = await fetch(`${API_URL}/api/teams/tasks/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
