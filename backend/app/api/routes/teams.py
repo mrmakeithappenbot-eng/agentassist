@@ -191,6 +191,15 @@ async def create_task(
     db.commit()
     db.refresh(new_task)
     
+    # Auto-assign task to creator so it shows in my-tasks
+    assignment = TaskAssignment(
+        task_id=new_task.id,
+        assignee_id=current_user.id,
+        status="accepted"  # Creator auto-accepts their own task
+    )
+    db.add(assignment)
+    db.commit()
+    
     return {
         "success": True,
         "task": new_task.to_dict()
@@ -295,15 +304,17 @@ async def get_my_tasks(
     
     tasks_with_status = []
     for assignment in assignments:
-        task = assignment.task
-        tasks_with_status.append({
-            'assignment_id': assignment.id,
-            'task': task.to_dict(),
-            'status': assignment.status.value,
-            'responded_at': assignment.responded_at.isoformat() if assignment.responded_at else None,
-            'completed_at': assignment.completed_at.isoformat() if assignment.completed_at else None,
-            'notes': assignment.notes
-        })
+        # Manually fetch the task (no relationship in simple model)
+        task = db.query(Task).filter(Task.id == assignment.task_id).first()
+        if task:
+            tasks_with_status.append({
+                'assignment_id': assignment.id,
+                'task': task.to_dict(),
+                'status': assignment.status,
+                'responded_at': assignment.responded_at.isoformat() if assignment.responded_at else None,
+                'completed_at': assignment.completed_at.isoformat() if assignment.completed_at else None,
+                'notes': assignment.notes
+            })
     
     return {
         "success": True,
