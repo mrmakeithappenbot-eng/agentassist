@@ -18,7 +18,7 @@ import { logout, getUser } from '@/lib/auth';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Calendar', href: '/dashboard/calendar', icon: CalendarIcon },
-  { name: 'Leads', href: '/dashboard/leads', icon: ArrowUpTrayIcon },
+  { name: 'Leads', href: '/dashboard/leads', icon: UserGroupIcon },
   { name: 'Pending Approvals', href: '/dashboard/messages', icon: EnvelopeIcon, badge: true },
   { name: 'The Hunter', href: '/dashboard/hunter', icon: MagnifyingGlassIcon },
   { name: 'Listing Launchpad', href: '/dashboard/launchpad', icon: PhotoIcon },

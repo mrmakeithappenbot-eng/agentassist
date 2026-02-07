@@ -12,7 +12,9 @@ import {
   ChevronRightIcon,
   SunIcon,
   MoonIcon,
-  ComputerDesktopIcon
+  ComputerDesktopIcon,
+  ArrowUpTrayIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
@@ -93,6 +95,7 @@ export default function SettingsPage() {
 
   const menuItems = [
     { id: 'account', label: 'Account', icon: UserCircleIcon },
+    { id: 'import', label: 'Import Leads', icon: ArrowUpTrayIcon },
     { id: 'notifications', label: 'Notifications', icon: BellIcon },
     { id: 'appearance', label: 'Appearance', icon: PaintBrushIcon },
     { id: 'security', label: 'Security', icon: ShieldCheckIcon },
@@ -221,6 +224,76 @@ export default function SettingsPage() {
                   <button className="px-6 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors">
                     Save Changes
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Import Leads Section */}
+            {activeSection === 'import' && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+                  Import Leads
+                </h2>
+                
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Import leads from your CRM or a CSV file. Supported formats: CSV, Excel.
+                </p>
+
+                {/* CSV Upload */}
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center mb-6">
+                  <ArrowUpTrayIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Drop your CSV file here
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    or click to browse
+                  </p>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    className="hidden"
+                    id="csv-upload"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        alert(`Selected: ${file.name} - CSV import coming soon!`);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="csv-upload"
+                    className="inline-block px-6 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors cursor-pointer"
+                  >
+                    Choose File
+                  </label>
+                </div>
+
+                {/* Quick Links */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <a
+                    href="/dashboard/leads"
+                    className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
+                      <UserCircleIcon className="w-5 h-5 text-primary-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">View All Leads</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Manage your existing leads</p>
+                    </div>
+                  </a>
+                  <a
+                    href="/dashboard/hunter"
+                    className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <MagnifyingGlassIcon className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">The Hunter</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Find FSBO & expired listings</p>
+                    </div>
+                  </a>
                 </div>
               </div>
             )}
