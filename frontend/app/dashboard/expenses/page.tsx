@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   CalculatorIcon,
   MapPinIcon,
@@ -9,6 +9,13 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
+
+// LocalStorage keys
+const STORAGE_KEYS = {
+  mileageLog: 'agentassist_mileage_log',
+  expenses: 'agentassist_expenses',
+  presets: 'agentassist_expense_presets',
+};
 
 export default function ExpensesPage() {
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
@@ -83,17 +90,65 @@ export default function ExpensesPage() {
     }
   };
 
-  // Expense tracking state
-  const [expensePresets, setExpensePresets] = useState([
-    { id: 1, name: 'Yard Sign', cost: 50, category: 'Marketing' },
-    { id: 2, name: 'Lockbox', cost: 35, category: 'Equipment' },
-    { id: 3, name: 'Photography Package', cost: 200, category: 'Marketing' },
-    { id: 4, name: 'Staging Consultation', cost: 150, category: 'Services' },
-  ]);
+  // Expense tracking state - initialized empty, loaded from localStorage in useEffect
+  const [expensePresets, setExpensePresets] = useState<Array<{id: number; name: string; cost: number; category: string}>>([]);
   const [mileageLog, setMileageLog] = useState<Array<{id: number; date: string; from: string; to: string; miles: number; purpose: string}>>([]);
-  const [expenses, setExpenses] = useState<Array<{id: number; date: string; description: string; amount: number; category: string; receipt?: string}>>([
-    { id: 1, date: '2026-01-01', description: 'AgentAssist CRM (Monthly)', amount: 50, category: 'Software' },
-  ]);
+  const [expenses, setExpenses] = useState<Array<{id: number; date: string; description: string; amount: number; category: string; receipt?: string}>>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Load data from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const savedMileage = localStorage.getItem(STORAGE_KEYS.mileageLog);
+      const savedExpenses = localStorage.getItem(STORAGE_KEYS.expenses);
+      const savedPresets = localStorage.getItem(STORAGE_KEYS.presets);
+      
+      if (savedMileage) {
+        setMileageLog(JSON.parse(savedMileage));
+      }
+      
+      if (savedExpenses) {
+        setExpenses(JSON.parse(savedExpenses));
+      } else {
+        // Default CRM expense
+        setExpenses([{ id: 1, date: '2026-01-01', description: 'AgentAssist CRM (Monthly)', amount: 50, category: 'Software' }]);
+      }
+      
+      if (savedPresets) {
+        setExpensePresets(JSON.parse(savedPresets));
+      } else {
+        // Default presets
+        setExpensePresets([
+          { id: 1, name: 'Yard Sign', cost: 50, category: 'Marketing' },
+          { id: 2, name: 'Lockbox', cost: 35, category: 'Equipment' },
+          { id: 3, name: 'Photography Package', cost: 200, category: 'Marketing' },
+          { id: 4, name: 'Staging Consultation', cost: 150, category: 'Services' },
+        ]);
+      }
+    } catch (e) {
+      console.error('Error loading expense data:', e);
+    }
+    
+    setDataLoaded(true);
+  }, []);
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    if (!dataLoaded) return; // Don't save during initial load
+    localStorage.setItem(STORAGE_KEYS.mileageLog, JSON.stringify(mileageLog));
+  }, [mileageLog, dataLoaded]);
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+    localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
+  }, [expenses, dataLoaded]);
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+    localStorage.setItem(STORAGE_KEYS.presets, JSON.stringify(expensePresets));
+  }, [expensePresets, dataLoaded]);
   const [newPreset, setNewPreset] = useState({ name: '', cost: '', category: 'Marketing' });
   const [newMileage, setNewMileage] = useState({ date: '', from: '', to: '', miles: '', purpose: '' });
   const [newExpense, setNewExpense] = useState({ date: '', description: '', amount: '', category: 'Other' });
