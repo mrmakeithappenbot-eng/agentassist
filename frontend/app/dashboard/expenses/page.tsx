@@ -278,37 +278,50 @@ export default function ExpensesPage() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Miles"
-                  value={newMileage.miles}
-                  onChange={(e) => setNewMileage({...newMileage, miles: e.target.value})}
-                  className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
-                />
-                <button
-                  onClick={calculateDistance}
-                  disabled={isCalculatingDistance || !fromCoords || !toCoords}
-                  className="px-4 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  title={!fromCoords || !toCoords ? 'Select addresses from dropdown' : 'Calculate driving distance'}
-                >
-                  {isCalculatingDistance ? '⏳' : '🚗'} Calculate
-                </button>
-              </div>
+              <input
+                type="number"
+                placeholder="Miles"
+                value={newMileage.miles}
+                onChange={(e) => setNewMileage({...newMileage, miles: e.target.value})}
+                className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
+              />
+            </div>
+            
+            {/* Action Buttons - Separate Row */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
               <button
-                onClick={() => {
-                  if (newMileage.date && newMileage.miles) {
-                    setMileageLog([...mileageLog, {
-                      id: Date.now(),
-                      ...newMileage,
-                      miles: parseFloat(newMileage.miles)
-                    }]);
-                    setNewMileage({ date: '', from: '', to: '', miles: '', purpose: '' });
-                  }
-                }}
-                className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors"
+                type="button"
+                onClick={calculateDistance}
+                disabled={isCalculatingDistance || !fromCoords || !toCoords}
+                className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!fromCoords || !toCoords ? 'Select addresses from dropdown first' : 'Calculate driving distance'}
               >
-                Add Trip
+                {isCalculatingDistance ? '⏳ Calculating...' : '🚗 Calculate Distance'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newMileage.date) {
+                    alert('Please select a date');
+                    return;
+                  }
+                  if (!newMileage.miles) {
+                    alert('Please enter miles (or use Calculate Distance)');
+                    return;
+                  }
+                  setMileageLog([...mileageLog, {
+                    id: Date.now(),
+                    ...newMileage,
+                    miles: parseFloat(newMileage.miles)
+                  }]);
+                  setNewMileage({ date: '', from: '', to: '', miles: '', purpose: '' });
+                  setFromCoords(null);
+                  setToCoords(null);
+                  alert('Trip added!');
+                }}
+                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+              >
+                ✅ Add Trip
               </button>
             </div>
             <p className="text-sm text-gray-500 mt-3">
