@@ -23,15 +23,17 @@ interface Task {
   scheduled_for?: string;
   due_date?: string;
   creator_name: string;
-  creator_id: number;
+  creator_id?: number;
   is_creator: boolean;
   user_status?: string;
-  assignments: any[];
+  assignments?: any[];
+  assignment_id?: number;
 }
 
 export default function CalendarPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -54,10 +56,11 @@ export default function CalendarPage() {
   const fetchTasks = async () => {
     try {
       setLoading(true);
+      setError(null);
       const token = localStorage.getItem('token');
       
       const response = await fetch(
-        `${API_URL}/api/tasks/calendar?user_id=${userId}`,
+        `${API_URL}/api/teams/tasks/my-tasks`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -65,13 +68,28 @@ export default function CalendarPage() {
         }
       );
       
+      if (!response.ok) {
+        throw new Error('Failed to load tasks. Please try logging in again.');
+      }
+      
       const data = await response.json();
       
       if (data.success) {
-        setTasks(data.events || []);
+        // Flatten the nested structure from old API format
+        const flattenedTasks = (data.tasks || []).map((item: any) => ({
+          ...item.task,
+          assignment_id: item.assignment_id,
+          user_status: item.status,
+          creator_name: item.task.creator_name || 'Unknown',
+          is_creator: false
+        }));
+        setTasks(flattenedTasks);
+      } else {
+        setError('Failed to load calendar');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching tasks:', error);
+      setError(error.message || 'Failed to load tasks');
     } finally {
       setLoading(false);
     }
@@ -81,15 +99,25 @@ export default function CalendarPage() {
     try {
       const token = localStorage.getItem('token');
       
+      // Find the task to get assignment_id
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.assignment_id) {
+        alert('Cannot update task status');
+        return;
+      }
+      
       const response = await fetch(
-        `${API_URL}/api/tasks/${taskId}/status?user_id=${userId}`,
+        `${API_URL}/api/teams/tasks/update-status`,
         {
-          method: 'PATCH',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ status })
+          body: JSON.stringify({ 
+            assignment_id: task.assignment_id,
+            status: status
+          })
         }
       );
       
@@ -116,14 +144,21 @@ export default function CalendarPage() {
       const token = localStorage.getItem('token');
       
       const response = await fetch(
-        `${API_URL}/api/tasks/?user_id=${userId}`,
+        `${API_URL}/api/teams/tasks/create`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(createData)
+          body: JSON.stringify({
+            title: createData.title,
+            description: createData.description,
+            task_type: createData.task_type,
+            task_category: createData.task_category,
+            due_date: createData.scheduled_for,
+            assign_to_members: []
+          })
         }
       );
       
@@ -251,8 +286,39 @@ export default function CalendarPage() {
   if (loading) {
     return (
       <div className="p-6 md:p-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="flex flex-col justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading calendar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 md:p-8">
+        <div className="mb-6">
+          <BackButton />
+        </div>
+        <div className="flex flex-col justify-center items-center h-64">
+          <div className="glass dark:glass-dark rounded-2xl p-8 max-w-md border border-white/30 dark:border-white/10">
+            <CalendarIcon className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 text-center">
+              Calendar Updating
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+              {error}
+            </p>
+            <button
+              onClick={() => {
+                setError(null);
+                fetchTasks();
+              }}
+              className="w-full px-6 py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 smooth-transition"
+            >
+              Retry Now
+            </button>
+          </div>
         </div>
       </div>
     );
