@@ -6,7 +6,8 @@ import {
   MapPinIcon,
   ReceiptPercentIcon,
   PlusIcon,
-  TrashIcon
+  TrashIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
@@ -18,19 +19,30 @@ const STORAGE_KEYS = {
   homeLocation: 'agentassist_home_location',
 };
 
+// Type for a stop in multi-stop trip
+interface TripStop {
+  id: number;
+  address: string;
+  coords: { lat: number; lon: number } | null;
+}
+
 export default function ExpensesPage() {
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
-  const [fromSuggestions, setFromSuggestions] = useState<Array<{display: string; lat: number; lon: number}>>([]);
-  const [toSuggestions, setToSuggestions] = useState<Array<{display: string; lat: number; lon: number}>>([]);
-  const [fromCoords, setFromCoords] = useState<{lat: number; lon: number} | null>(null);
-  const [toCoords, setToCoords] = useState<{lat: number; lon: number} | null>(null);
-  const [showFromDropdown, setShowFromDropdown] = useState(false);
-  const [showToDropdown, setShowToDropdown] = useState(false);
+  
+  // Multi-stop trip state
+  const [tripStops, setTripStops] = useState<TripStop[]>([
+    { id: 1, address: '', coords: null },
+    { id: 2, address: '', coords: null }
+  ]);
+  const [activeStopId, setActiveStopId] = useState<number | null>(null);
+  const [stopSuggestions, setStopSuggestions] = useState<Array<{display: string; lat: number; lon: number}>>([]);
+  const [calculatedMiles, setCalculatedMiles] = useState<number | null>(null);
+  const [legDistances, setLegDistances] = useState<number[]>([]);
 
   // Search addresses using Photon (free OpenStreetMap geocoder)
-  const searchAddress = async (query: string, setSuggestions: (s: any[]) => void) => {
+  const searchAddress = async (query: string, stopId?: number) => {
     if (query.length < 3) {
-      setSuggestions([]);
+      setStopSuggestions([]);
       return;
     }
 
@@ -57,10 +69,35 @@ export default function ExpensesPage() {
         lon: f.geometry.coordinates[0]
       })) || [];
       
-      setSuggestions(suggestions);
+      setStopSuggestions(suggestions);
+      if (stopId) setActiveStopId(stopId);
     } catch (error) {
       console.error('Address search error:', error);
     }
+  };
+
+  // Update a stop's address
+  const updateStop = (stopId: number, address: string, coords: { lat: number; lon: number } | null = null) => {
+    setTripStops(stops => stops.map(s => 
+      s.id === stopId ? { ...s, address, coords } : s
+    ));
+    // Reset calculated miles when addresses change
+    setCalculatedMiles(null);
+    setLegDistances([]);
+  };
+
+  // Add a new stop
+  const addStop = () => {
+    const newId = Math.max(...tripStops.map(s => s.id)) + 1;
+    setTripStops([...tripStops, { id: newId, address: '', coords: null }]);
+  };
+
+  // Remove a stop (keep at least 2)
+  const removeStop = (stopId: number) => {
+    if (tripStops.length <= 2) return;
+    setTripStops(stops => stops.filter(s => s.id !== stopId));
+    setCalculatedMiles(null);
+    setLegDistances([]);
   };
 
   // Search for location (city/area)
@@ -128,27 +165,43 @@ export default function ExpensesPage() {
     );
   };
 
-  // Calculate distance using OSRM (free routing service)
+  // Calculate distance using OSRM (free routing service) for multi-stop trips
   const calculateDistance = async () => {
-    if (!fromCoords || !toCoords) {
-      alert('Please select addresses from the dropdown suggestions');
+    // Check all stops have coordinates
+    const stopsWithCoords = tripStops.filter(s => s.coords);
+    if (stopsWithCoords.length < 2) {
+      alert('Please select at least 2 addresses from the dropdown suggestions');
       return;
     }
 
     setIsCalculatingDistance(true);
+    const legs: number[] = [];
 
     try {
-      // OSRM expects lon,lat format
+      // Build waypoints string for OSRM (lon,lat;lon,lat;...)
+      const waypoints = stopsWithCoords
+        .map(s => `${s.coords!.lon},${s.coords!.lat}`)
+        .join(';');
+
       const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${fromCoords.lon},${fromCoords.lat};${toCoords.lon},${toCoords.lat}?overview=false`
+        `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=false&steps=false`
       );
       const data = await response.json();
 
       if (data.code === 'Ok' && data.routes?.[0]) {
-        // Distance is in meters, convert to miles
-        const meters = data.routes[0].distance;
-        const miles = meters / 1609.344;
-        setNewMileage(prev => ({ ...prev, miles: miles.toFixed(1) }));
+        // Get individual leg distances
+        data.routes[0].legs?.forEach((leg: any) => {
+          const miles = leg.distance / 1609.344;
+          legs.push(parseFloat(miles.toFixed(1)));
+        });
+
+        // Total distance
+        const totalMeters = data.routes[0].distance;
+        const totalMiles = parseFloat((totalMeters / 1609.344).toFixed(1));
+        
+        setCalculatedMiles(totalMiles);
+        setLegDistances(legs);
+        setNewMileage(prev => ({ ...prev, miles: totalMiles.toString() }));
       } else {
         alert('Could not calculate route. Please enter miles manually.');
       }
@@ -162,7 +215,7 @@ export default function ExpensesPage() {
 
   // Expense tracking state - initialized empty, loaded from localStorage in useEffect
   const [expensePresets, setExpensePresets] = useState<Array<{id: number; name: string; cost: number; category: string}>>([]);
-  const [mileageLog, setMileageLog] = useState<Array<{id: number; date: string; from: string; to: string; miles: number; purpose: string}>>([]);
+  const [mileageLog, setMileageLog] = useState<Array<{id: number; date: string; stops: string[]; miles: number; purpose: string; legDistances?: number[]}>>([]);
   const [expenses, setExpenses] = useState<Array<{id: number; date: string; description: string; amount: number; category: string; receipt?: string}>>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   
@@ -240,7 +293,7 @@ export default function ExpensesPage() {
     localStorage.setItem(STORAGE_KEYS.presets, JSON.stringify(expensePresets));
   }, [expensePresets, dataLoaded]);
   const [newPreset, setNewPreset] = useState({ name: '', cost: '', category: 'Marketing' });
-  const [newMileage, setNewMileage] = useState({ date: '', from: '', to: '', miles: '', purpose: '' });
+  const [newMileage, setNewMileage] = useState({ date: '', miles: '', purpose: '' });
   const [newExpense, setNewExpense] = useState({ date: '', description: '', amount: '', category: 'Other' });
   const [activeTab, setActiveTab] = useState<'summary' | 'mileage' | 'expenses' | 'presets'>('summary');
 
@@ -359,10 +412,12 @@ export default function ExpensesPage() {
             </button>
           </div>
 
-          {/* Add Mileage Form */}
+          {/* Add Mileage Form - Multi-Stop */}
           <div className="glass dark:glass-dark rounded-2xl p-6 border border-white/30 dark:border-white/10">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Log Trip</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Date & Purpose */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <input
                 type="date"
                 value={newMileage.date}
@@ -371,98 +426,136 @@ export default function ExpensesPage() {
               />
               <input
                 type="text"
-                placeholder="Purpose (e.g., Showing at 123 Main St)"
+                placeholder="Purpose (e.g., Showings Tour)"
                 value={newMileage.purpose}
                 onChange={(e) => setNewMileage({...newMileage, purpose: e.target.value})}
                 className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
               />
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="From address (start typing...)"
-                  value={newMileage.from}
-                  onChange={(e) => {
-                    setNewMileage({...newMileage, from: e.target.value});
-                    searchAddress(e.target.value, setFromSuggestions);
-                    setShowFromDropdown(true);
-                    setFromCoords(null);
-                  }}
-                  onFocus={() => fromSuggestions.length > 0 && setShowFromDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowFromDropdown(false), 200)}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
-                />
-                {showFromDropdown && fromSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
-                    {fromSuggestions.map((s, i) => (
-                      <button
-                        key={i}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-                        onClick={() => {
-                          setNewMileage(prev => ({ ...prev, from: s.display }));
-                          setFromCoords({ lat: s.lat, lon: s.lon });
-                          setShowFromDropdown(false);
-                          setFromSuggestions([]);
-                        }}
-                      >
-                        📍 {s.display}
-                      </button>
-                    ))}
+            </div>
+
+            {/* Multi-Stop Route Builder */}
+            <div className="space-y-3 mb-4">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Route ({tripStops.length} stops)
+              </label>
+              
+              {tripStops.map((stop, index) => (
+                <div key={stop.id} className="flex items-center gap-2">
+                  {/* Stop number indicator */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    stop.coords 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                  }`}>
+                    {index === 0 ? '🏠' : index === tripStops.length - 1 ? '🏁' : index}
                   </div>
-                )}
-              </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="To address (start typing...)"
-                  value={newMileage.to}
-                  onChange={(e) => {
-                    setNewMileage({...newMileage, to: e.target.value});
-                    searchAddress(e.target.value, setToSuggestions);
-                    setShowToDropdown(true);
-                    setToCoords(null);
-                  }}
-                  onFocus={() => toSuggestions.length > 0 && setShowToDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowToDropdown(false), 200)}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
-                />
-                {showToDropdown && toSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
-                    {toSuggestions.map((s, i) => (
-                      <button
-                        key={i}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-                        onClick={() => {
-                          setNewMileage(prev => ({ ...prev, to: s.display }));
-                          setToCoords({ lat: s.lat, lon: s.lon });
-                          setShowToDropdown(false);
-                          setToSuggestions([]);
-                        }}
-                      >
-                        📍 {s.display}
-                      </button>
-                    ))}
+                  
+                  {/* Address input */}
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder={index === 0 ? 'Starting point...' : index === tripStops.length - 1 ? 'Final destination...' : `Stop ${index}...`}
+                      value={stop.address}
+                      onChange={(e) => {
+                        updateStop(stop.id, e.target.value);
+                        searchAddress(e.target.value, stop.id);
+                      }}
+                      onFocus={() => {
+                        if (stopSuggestions.length > 0) setActiveStopId(stop.id);
+                      }}
+                      onBlur={() => setTimeout(() => setActiveStopId(null), 200)}
+                      className={`w-full px-4 py-3 rounded-xl text-gray-900 dark:text-white ${
+                        stop.coords 
+                          ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-500' 
+                          : 'bg-gray-50 dark:bg-gray-700'
+                      }`}
+                    />
+                    {/* Dropdown for this stop */}
+                    {activeStopId === stop.id && stopSuggestions.length > 0 && (
+                      <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                        {stopSuggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              updateStop(stop.id, s.display, { lat: s.lat, lon: s.lon });
+                              setStopSuggestions([]);
+                              setActiveStopId(null);
+                            }}
+                          >
+                            📍 {s.display}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {/* Remove button (only show if more than 2 stops) */}
+                  {tripStops.length > 2 && (
+                    <button
+                      onClick={() => removeStop(stop.id)}
+                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Remove stop"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {/* Add Stop Button */}
+              <button
+                onClick={addStop}
+                className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 hover:border-primary-500 hover:text-primary-500 transition-colors flex items-center justify-center gap-2"
+              >
+                <PlusIcon className="w-5 h-5" />
+                Add Stop
+              </button>
+            </div>
+
+            {/* Leg Distances Breakdown (if calculated) */}
+            {legDistances.length > 0 && (
+              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Route Breakdown:</p>
+                <div className="space-y-1">
+                  {legDistances.map((miles, i) => (
+                    <div key={i} className="flex justify-between text-sm text-blue-600 dark:text-blue-400">
+                      <span>
+                        {tripStops[i]?.address?.split(',')[0] || `Stop ${i + 1}`} → {tripStops[i + 1]?.address?.split(',')[0] || `Stop ${i + 2}`}
+                      </span>
+                      <span className="font-medium">{miles} mi</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm font-bold text-blue-700 dark:text-blue-300 pt-2 border-t border-blue-200 dark:border-blue-800">
+                    <span>Total</span>
+                    <span>{calculatedMiles} mi (${(calculatedMiles! * 0.67).toFixed(2)} deduction)</span>
+                  </div>
+                </div>
               </div>
+            )}
+
+            {/* Miles input (manual override) */}
+            <div className="flex gap-3 mb-4">
               <input
                 type="number"
-                placeholder="Miles"
+                placeholder="Total miles (or use Calculate)"
                 value={newMileage.miles}
                 onChange={(e) => setNewMileage({...newMileage, miles: e.target.value})}
-                className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
+                className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
               />
             </div>
             
-            {/* Action Buttons - Separate Row */}
-            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={calculateDistance}
-                disabled={isCalculatingDistance || !fromCoords || !toCoords}
+                disabled={isCalculatingDistance || tripStops.filter(s => s.coords).length < 2}
                 className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={!fromCoords || !toCoords ? 'Select addresses from dropdown first' : 'Calculate driving distance'}
+                title={tripStops.filter(s => s.coords).length < 2 ? 'Select at least 2 addresses from dropdowns' : 'Calculate driving distance'}
               >
-                {isCalculatingDistance ? '⏳ Calculating...' : '🚗 Calculate Distance'}
+                {isCalculatingDistance ? '⏳ Calculating...' : `🚗 Calculate Route (${tripStops.filter(s => s.coords).length}/${tripStops.length} stops)`}
               </button>
               <button
                 type="button"
@@ -472,17 +565,30 @@ export default function ExpensesPage() {
                     return;
                   }
                   if (!newMileage.miles) {
-                    alert('Please enter miles (or use Calculate Distance)');
+                    alert('Please enter miles (or use Calculate Route)');
+                    return;
+                  }
+                  const stops = tripStops.map(s => s.address).filter(Boolean);
+                  if (stops.length < 2) {
+                    alert('Please enter at least 2 addresses');
                     return;
                   }
                   setMileageLog([...mileageLog, {
                     id: Date.now(),
-                    ...newMileage,
-                    miles: parseFloat(newMileage.miles)
+                    date: newMileage.date,
+                    purpose: newMileage.purpose,
+                    stops,
+                    miles: parseFloat(newMileage.miles),
+                    legDistances: legDistances.length > 0 ? legDistances : undefined
                   }]);
-                  setNewMileage({ date: '', from: '', to: '', miles: '', purpose: '' });
-                  setFromCoords(null);
-                  setToCoords(null);
+                  // Reset form
+                  setNewMileage({ date: '', miles: '', purpose: '' });
+                  setTripStops([
+                    { id: 1, address: '', coords: null },
+                    { id: 2, address: '', coords: null }
+                  ]);
+                  setCalculatedMiles(null);
+                  setLegDistances([]);
                   alert('Trip added!');
                 }}
                 className="flex-1 px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
@@ -491,27 +597,49 @@ export default function ExpensesPage() {
               </button>
             </div>
             <p className="text-sm text-gray-500 mt-3">
-              💡 2026 IRS mileage rate: $0.67/mile • Start typing for address suggestions
+              💡 2026 IRS mileage rate: $0.67/mile • Add multiple stops for showing tours!
             </p>
           </div>
 
           {/* Mileage Log */}
           <div className="space-y-3">
             {mileageLog.map((trip) => (
-              <div key={trip.id} className="glass dark:glass-dark rounded-xl p-4 border border-white/30 dark:border-white/10 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                    <MapPinIcon className="w-5 h-5 text-blue-600" />
+              <div key={trip.id} className="glass dark:glass-dark rounded-xl p-4 border border-white/30 dark:border-white/10">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                      <MapPinIcon className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{trip.purpose || 'Business Trip'}</p>
+                      <p className="text-sm text-gray-500">
+                        {trip.stops ? (
+                          trip.stops.length <= 3 
+                            ? trip.stops.map(s => s.split(',')[0]).join(' → ')
+                            : `${trip.stops[0]?.split(',')[0]} → ${trip.stops.length - 2} stops → ${trip.stops[trip.stops.length - 1]?.split(',')[0]}`
+                        ) : (
+                          // Legacy support for old from/to format
+                          `${(trip as any).from || ''} → ${(trip as any).to || ''}`
+                        )}
+                      </p>
+                      {trip.stops && trip.stops.length > 2 && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {trip.stops.length} stops total
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-400">{trip.date}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{trip.purpose || 'Business Trip'}</p>
-                    <p className="text-sm text-gray-500">{trip.from} → {trip.to}</p>
-                    <p className="text-xs text-gray-400">{trip.date}</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-semibold text-gray-900 dark:text-white">{trip.miles} mi</p>
+                    <p className="text-sm text-green-600">${(trip.miles * 0.67).toFixed(2)}</p>
+                    <button
+                      onClick={() => setMileageLog(mileageLog.filter(t => t.id !== trip.id))}
+                      className="text-red-500 hover:text-red-700 mt-1"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">{trip.miles} mi</p>
-                  <p className="text-sm text-green-600">${(trip.miles * 0.67).toFixed(2)}</p>
                 </div>
               </div>
             ))}
