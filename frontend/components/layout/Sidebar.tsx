@@ -18,12 +18,12 @@ import { logout, getUser } from '@/lib/auth';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Calendar', href: '/dashboard/calendar', icon: CalendarIcon },
-  { name: 'Import Leads', href: '/settings/import', icon: ArrowUpTrayIcon },
+  { name: 'Leads', href: '/dashboard/leads', icon: ArrowUpTrayIcon },
   { name: 'Pending Approvals', href: '/dashboard/messages', icon: EnvelopeIcon, badge: true },
   { name: 'The Hunter', href: '/dashboard/hunter', icon: MagnifyingGlassIcon },
   { name: 'Listing Launchpad', href: '/dashboard/launchpad', icon: PhotoIcon },
   { name: 'Team', href: '/dashboard/team', icon: UserGroupIcon },
-  { name: 'Settings', href: '/settings/crm', icon: Cog6ToothIcon },
+  { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ];
 
 export default function Sidebar() {
