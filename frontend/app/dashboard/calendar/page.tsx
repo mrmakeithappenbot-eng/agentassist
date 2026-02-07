@@ -45,16 +45,15 @@ export default function CalendarPage() {
     scheduled_for: '',
   });
 
-  const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
-
   useEffect(() => {
-    if (userId) {
+    // Check auth on client side only
+    const token = localStorage.getItem('token');
+    if (token) {
       fetchTasks();
     } else {
-      // No user logged in - stop loading
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   const fetchTasks = async () => {
     try {
