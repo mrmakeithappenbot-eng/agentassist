@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import {
   CalculatorIcon,
   MapPinIcon,
@@ -10,127 +10,76 @@ import {
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
-// Google Maps API key - set in .env.local as NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
-// Extend window for Google Maps
-declare global {
-  interface Window {
-    google?: {
-      maps: {
-        places: {
-          Autocomplete: new (input: HTMLInputElement, options?: any) => any;
-        };
-        DistanceMatrixService: new () => any;
-        TravelMode: { DRIVING: string };
-        UnitSystem: { IMPERIAL: number };
-      };
-    };
-  }
-}
-
 export default function ExpensesPage() {
-  const fromInputRef = useRef<HTMLInputElement>(null);
-  const toInputRef = useRef<HTMLInputElement>(null);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
-  const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [fromSuggestions, setFromSuggestions] = useState<Array<{display: string; lat: number; lon: number}>>([]);
+  const [toSuggestions, setToSuggestions] = useState<Array<{display: string; lat: number; lon: number}>>([]);
+  const [fromCoords, setFromCoords] = useState<{lat: number; lon: number} | null>(null);
+  const [toCoords, setToCoords] = useState<{lat: number; lon: number} | null>(null);
+  const [showFromDropdown, setShowFromDropdown] = useState(false);
+  const [showToDropdown, setShowToDropdown] = useState(false);
 
-  // Load Google Maps script
-  useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY || typeof window === 'undefined') return;
-    
-    // Check if already loaded
-    if (window.google?.maps?.places) {
-      setMapsLoaded(true);
+  // Search addresses using Photon (free OpenStreetMap geocoder)
+  const searchAddress = async (query: string, setSuggestions: (s: any[]) => void) => {
+    if (query.length < 3) {
+      setSuggestions([]);
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    script.onload = () => setMapsLoaded(true);
-    document.head.appendChild(script);
-
-    return () => {
-      // Cleanup if needed
-    };
-  }, []);
-
-  // Setup autocomplete when maps loads
-  useEffect(() => {
-    if (!mapsLoaded || !window.google?.maps?.places) return;
-
-    const setupAutocomplete = (input: HTMLInputElement | null, field: 'from' | 'to') => {
-      if (!input || !window.google?.maps?.places) return;
+    try {
+      const response = await fetch(
+        `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=en`
+      );
+      const data = await response.json();
       
-      const autocomplete = new window.google.maps.places.Autocomplete(input, {
-        types: ['address'],
-        componentRestrictions: { country: 'us' }
-      });
+      const suggestions = data.features?.map((f: any) => ({
+        display: [
+          f.properties.name,
+          f.properties.street,
+          f.properties.housenumber,
+          f.properties.city,
+          f.properties.state,
+          f.properties.postcode
+        ].filter(Boolean).join(', '),
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0]
+      })) || [];
+      
+      setSuggestions(suggestions);
+    } catch (error) {
+      console.error('Address search error:', error);
+    }
+  };
 
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (place.formatted_address) {
-          setNewMileage(prev => ({ ...prev, [field]: place.formatted_address }));
-        }
-      });
-    };
-
-    setupAutocomplete(fromInputRef.current, 'from');
-    setupAutocomplete(toInputRef.current, 'to');
-  }, [mapsLoaded]);
-
-  // Calculate distance between addresses
+  // Calculate distance using OSRM (free routing service)
   const calculateDistance = async () => {
-    if (!newMileage.from || !newMileage.to) {
-      alert('Please enter both addresses');
-      return;
-    }
-
-    if (!GOOGLE_MAPS_API_KEY) {
-      alert('Google Maps API key not configured. Please enter miles manually.');
-      return;
-    }
-
-    if (!window.google?.maps) {
-      alert('Google Maps not loaded. Please enter miles manually.');
+    if (!fromCoords || !toCoords) {
+      alert('Please select addresses from the dropdown suggestions');
       return;
     }
 
     setIsCalculatingDistance(true);
 
     try {
-      const google = window.google;
-      if (!google?.maps) {
-        setIsCalculatingDistance(false);
-        alert('Google Maps not loaded');
-        return;
-      }
-      
-      const service = new google.maps.DistanceMatrixService();
-      
-      service.getDistanceMatrix(
-        {
-          origins: [newMileage.from],
-          destinations: [newMileage.to],
-          travelMode: google.maps.TravelMode.DRIVING,
-          unitSystem: google.maps.UnitSystem.IMPERIAL,
-        },
-        (response: any, status: any) => {
-          setIsCalculatingDistance(false);
-          
-          if (status === 'OK' && response.rows[0]?.elements[0]?.status === 'OK') {
-            const distanceText = response.rows[0].elements[0].distance.text;
-            const miles = parseFloat(distanceText.replace(/[^0-9.]/g, ''));
-            setNewMileage(prev => ({ ...prev, miles: miles.toFixed(1) }));
-          } else {
-            alert('Could not calculate distance. Please enter miles manually.');
-          }
-        }
+      // OSRM expects lon,lat format
+      const response = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${fromCoords.lon},${fromCoords.lat};${toCoords.lon},${toCoords.lat}?overview=false`
       );
+      const data = await response.json();
+
+      if (data.code === 'Ok' && data.routes?.[0]) {
+        // Distance is in meters, convert to miles
+        const meters = data.routes[0].distance;
+        const miles = meters / 1609.344;
+        setNewMileage(prev => ({ ...prev, miles: miles.toFixed(1) }));
+      } else {
+        alert('Could not calculate route. Please enter miles manually.');
+      }
     } catch (error) {
-      setIsCalculatingDistance(false);
+      console.error('Distance calculation error:', error);
       alert('Error calculating distance. Please enter miles manually.');
+    } finally {
+      setIsCalculatingDistance(false);
     }
   };
 
@@ -261,22 +210,74 @@ export default function ExpensesPage() {
                 onChange={(e) => setNewMileage({...newMileage, purpose: e.target.value})}
                 className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
               />
-              <input
-                ref={fromInputRef}
-                type="text"
-                placeholder="From address"
-                value={newMileage.from}
-                onChange={(e) => setNewMileage({...newMileage, from: e.target.value})}
-                className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
-              />
-              <input
-                ref={toInputRef}
-                type="text"
-                placeholder="To address"
-                value={newMileage.to}
-                onChange={(e) => setNewMileage({...newMileage, to: e.target.value})}
-                className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="From address (start typing...)"
+                  value={newMileage.from}
+                  onChange={(e) => {
+                    setNewMileage({...newMileage, from: e.target.value});
+                    searchAddress(e.target.value, setFromSuggestions);
+                    setShowFromDropdown(true);
+                    setFromCoords(null);
+                  }}
+                  onFocus={() => fromSuggestions.length > 0 && setShowFromDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowFromDropdown(false), 200)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
+                />
+                {showFromDropdown && fromSuggestions.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                    {fromSuggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                        onClick={() => {
+                          setNewMileage(prev => ({ ...prev, from: s.display }));
+                          setFromCoords({ lat: s.lat, lon: s.lon });
+                          setShowFromDropdown(false);
+                          setFromSuggestions([]);
+                        }}
+                      >
+                        📍 {s.display}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="To address (start typing...)"
+                  value={newMileage.to}
+                  onChange={(e) => {
+                    setNewMileage({...newMileage, to: e.target.value});
+                    searchAddress(e.target.value, setToSuggestions);
+                    setShowToDropdown(true);
+                    setToCoords(null);
+                  }}
+                  onFocus={() => toSuggestions.length > 0 && setShowToDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowToDropdown(false), 200)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
+                />
+                {showToDropdown && toSuggestions.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                    {toSuggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                        onClick={() => {
+                          setNewMileage(prev => ({ ...prev, to: s.display }));
+                          setToCoords({ lat: s.lat, lon: s.lon });
+                          setShowToDropdown(false);
+                          setToSuggestions([]);
+                        }}
+                      >
+                        📍 {s.display}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -287,10 +288,11 @@ export default function ExpensesPage() {
                 />
                 <button
                   onClick={calculateDistance}
-                  disabled={isCalculatingDistance || !newMileage.from || !newMileage.to}
+                  disabled={isCalculatingDistance || !fromCoords || !toCoords}
                   className="px-4 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  title={!fromCoords || !toCoords ? 'Select addresses from dropdown' : 'Calculate driving distance'}
                 >
-                  {isCalculatingDistance ? 'Calculating...' : '📍 Calculate'}
+                  {isCalculatingDistance ? '⏳' : '🚗'} Calculate
                 </button>
               </div>
               <button
@@ -310,14 +312,8 @@ export default function ExpensesPage() {
               </button>
             </div>
             <p className="text-sm text-gray-500 mt-3">
-              💡 2026 IRS mileage rate: $0.67/mile
-              {GOOGLE_MAPS_API_KEY && ' • Start typing addresses for autocomplete'}
+              💡 2026 IRS mileage rate: $0.67/mile • Start typing for address suggestions
             </p>
-            {!GOOGLE_MAPS_API_KEY && (
-              <p className="text-xs text-amber-600 mt-1">
-                ⚠️ Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable address autocomplete & auto-calculate
-              </p>
-            )}
           </div>
 
           {/* Mileage Log */}
