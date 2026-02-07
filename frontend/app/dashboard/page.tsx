@@ -127,7 +127,7 @@ export default function Dashboard() {
         <QuickActionCard 
           title="Settings"
           description="Account, notifications, and preferences"
-          href="/settings"
+          href="/dashboard/settings"
           color="gray"
         />
       </div>
