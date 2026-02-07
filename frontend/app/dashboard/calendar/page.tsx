@@ -22,6 +22,7 @@ interface Task {
   task_type: string;
   scheduled_for?: string;
   due_date?: string;
+  start?: string;
   creator_name: string;
   creator_id?: number;
   is_creator: boolean;
@@ -33,7 +34,6 @@ interface Task {
 export default function CalendarPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -56,8 +56,12 @@ export default function CalendarPage() {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      setError(null);
       const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setTasks([]);
+        return;
+      }
       
       const response = await fetch(
         `${API_URL}/api/teams/tasks/my-tasks`,
@@ -69,27 +73,40 @@ export default function CalendarPage() {
       );
       
       if (!response.ok) {
-        throw new Error('Failed to load tasks. Please try logging in again.');
+        console.error('Failed to fetch tasks:', response.status);
+        setTasks([]);
+        return;
       }
       
       const data = await response.json();
       
-      if (data.success) {
-        // Flatten the nested structure from old API format
-        const flattenedTasks = (data.tasks || []).map((item: any) => ({
-          ...item.task,
-          assignment_id: item.assignment_id,
-          user_status: item.status,
-          creator_name: item.task.creator_name || 'Unknown',
-          is_creator: false
-        }));
-        setTasks(flattenedTasks);
+      if (data.success && Array.isArray(data.tasks)) {
+        // Transform nested format to flat task objects
+        const flatTasks: Task[] = data.tasks
+          .filter((item: any) => item && item.task)
+          .map((item: any) => ({
+            id: item.task.id,
+            title: item.task.title || 'Untitled',
+            description: item.task.description,
+            task_category: item.task.task_category || 'manual',
+            task_type: item.task.task_type || 'optional',
+            scheduled_for: item.task.scheduled_for,
+            due_date: item.task.due_date,
+            start: item.task.scheduled_for || item.task.due_date,
+            creator_name: item.task.creator_name || 'Unknown',
+            creator_id: item.task.creator_id,
+            is_creator: false,
+            user_status: item.status,
+            assignment_id: item.assignment_id,
+            assignments: []
+          }));
+        setTasks(flatTasks);
       } else {
-        setError('Failed to load calendar');
+        setTasks([]);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching tasks:', error);
-      setError(error.message || 'Failed to load tasks');
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -101,8 +118,8 @@ export default function CalendarPage() {
       
       // Find the task to get assignment_id
       const task = tasks.find(t => t.id === taskId);
-      if (!task || !task.assignment_id) {
-        alert('Cannot update task status');
+      if (!task?.assignment_id) {
+        alert('Cannot update this task');
         return;
       }
       
@@ -116,7 +133,7 @@ export default function CalendarPage() {
           },
           body: JSON.stringify({ 
             assignment_id: task.assignment_id,
-            status: status
+            status: status 
           })
         }
       );
@@ -156,7 +173,7 @@ export default function CalendarPage() {
             description: createData.description,
             task_type: createData.task_type,
             task_category: createData.task_category,
-            due_date: createData.scheduled_for,
+            due_date: createData.scheduled_for || null,
             assign_to_members: []
           })
         }
@@ -286,39 +303,8 @@ export default function CalendarPage() {
   if (loading) {
     return (
       <div className="p-6 md:p-8">
-        <div className="flex flex-col justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading calendar...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 md:p-8">
-        <div className="mb-6">
-          <BackButton />
-        </div>
-        <div className="flex flex-col justify-center items-center h-64">
-          <div className="glass dark:glass-dark rounded-2xl p-8 max-w-md border border-white/30 dark:border-white/10">
-            <CalendarIcon className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 text-center">
-              Calendar Updating
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
-              {error}
-            </p>
-            <button
-              onClick={() => {
-                setError(null);
-                fetchTasks();
-              }}
-              className="w-full px-6 py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 smooth-transition"
-            >
-              Retry Now
-            </button>
-          </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
         </div>
       </div>
     );
