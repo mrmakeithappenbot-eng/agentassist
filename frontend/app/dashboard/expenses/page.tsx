@@ -61,7 +61,7 @@ export default function ExpensesPage() {
     if (!mapsLoaded || !window.google?.maps?.places) return;
 
     const setupAutocomplete = (input: HTMLInputElement | null, field: 'from' | 'to') => {
-      if (!input) return;
+      if (!input || !window.google?.maps?.places) return;
       
       const autocomplete = new window.google.maps.places.Autocomplete(input, {
         types: ['address'],
@@ -100,14 +100,21 @@ export default function ExpensesPage() {
     setIsCalculatingDistance(true);
 
     try {
-      const service = new window.google.maps.DistanceMatrixService();
+      const google = window.google;
+      if (!google?.maps) {
+        setIsCalculatingDistance(false);
+        alert('Google Maps not loaded');
+        return;
+      }
+      
+      const service = new google.maps.DistanceMatrixService();
       
       service.getDistanceMatrix(
         {
           origins: [newMileage.from],
           destinations: [newMileage.to],
-          travelMode: window.google.maps.TravelMode.DRIVING,
-          unitSystem: window.google.maps.UnitSystem.IMPERIAL,
+          travelMode: google.maps.TravelMode.DRIVING,
+          unitSystem: google.maps.UnitSystem.IMPERIAL,
         },
         (response: any, status: any) => {
           setIsCalculatingDistance(false);
