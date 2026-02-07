@@ -10,12 +10,14 @@ import {
   Cog6ToothIcon,
   UserGroupIcon,
   ArrowUpTrayIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 import { logout, getUser } from '@/lib/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Calendar', href: '/dashboard/calendar', icon: CalendarIcon },
   { name: 'Import Leads', href: '/settings/import', icon: ArrowUpTrayIcon },
   { name: 'Pending Approvals', href: '/dashboard/messages', icon: EnvelopeIcon, badge: true },
   { name: 'The Hunter', href: '/dashboard/hunter', icon: MagnifyingGlassIcon },
