@@ -33,7 +33,7 @@ export default function Sidebar() {
     : user?.email?.[0].toUpperCase() || '?';
   
   return (
-    <div className="flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+    <div className="flex flex-col w-64 glass dark:glass-dark border-r border-white/20 dark:border-white/10 shadow-xl">
       <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200 dark:border-gray-700">
         <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">
           AgentAssist

@@ -161,13 +161,13 @@ export default function Dashboard() {
 
 function StatCard({ title, value, change, icon: Icon, positive }: any) {
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+    <div className="glass dark:glass-dark p-6 rounded-2xl shadow-lg border border-white/30 dark:border-white/10 smooth-transition hover:shadow-xl hover:scale-105">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-gray-600 dark:text-gray-400">{title}</p>
-        <Icon className="w-5 h-5 text-gray-400" />
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+        <Icon className="w-5 h-5 text-primary-500" />
       </div>
       <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{value}</p>
-      <p className={`text-sm ${positive ? 'text-green-600' : 'text-gray-500'}`}>
+      <p className={`text-sm font-medium ${positive ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
         {change}
       </p>
     </div>
@@ -176,15 +176,15 @@ function StatCard({ title, value, change, icon: Icon, positive }: any) {
 
 function QuickActionCard({ title, description, href, badge, color }: any) {
   const colorClasses: Record<string, string> = {
-    blue: 'border-primary-200 dark:border-primary-800 hover:border-primary-300',
-    purple: 'border-purple-200 dark:border-purple-800 hover:border-purple-300',
-    gray: 'border-gray-200 dark:border-gray-700 hover:border-gray-300',
+    blue: 'border-primary-300 dark:border-primary-700 hover:border-primary-400 dark:hover:border-primary-600',
+    purple: 'border-purple-300 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-600',
+    gray: 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600',
   };
   
   return (
     <Link 
       href={href}
-      className={`block bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-2 ${colorClasses[color]} transition-colors`}
+      className={`block glass dark:glass-dark p-6 rounded-2xl shadow-lg border-2 ${colorClasses[color]} smooth-transition hover:shadow-xl hover:scale-105`}
     >
       <div className="flex items-start justify-between mb-2">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>

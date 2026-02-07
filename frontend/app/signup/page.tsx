@@ -80,20 +80,20 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-purple-900/20 px-4">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-primary-600 dark:text-primary-400 mb-2">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent mb-3">
             AgentAssist
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-600 dark:text-gray-300 font-medium">
             Start automating your real estate business
           </p>
         </div>
 
         {/* Signup Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8">
+        <div className="glass dark:glass-dark rounded-3xl shadow-2xl p-8 border border-white/30 dark:border-white/10">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
             Create Account
           </h2>
