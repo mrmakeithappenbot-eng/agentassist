@@ -60,7 +60,7 @@ def init_db():
         from app.models.user import User
         from app.models.leads import Lead
         from app.models.activity import LeadActivity
-        from app.models.team import Team, Task, TaskAssignment, DailyUpdate
+        from app.models.team_simple import Team, Task, TaskAssignment
         
         # Create all tables (only creates missing ones)
         Base.metadata.create_all(bind=engine)
@@ -82,7 +82,8 @@ def reset_db():
     Only for development
     """
     # Import all models
-    from app.models.database import User, Team, Task, TaskAssignment, MorningDigest, MarketStats
+    from app.models.user import User
+    from app.models.team_simple import Team, Task, TaskAssignment
     from app.models.leads import Lead
     
     Base.metadata.drop_all(bind=engine)
