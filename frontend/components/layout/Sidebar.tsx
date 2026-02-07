@@ -67,17 +67,17 @@ export default function Sidebar() {
         })}
       </nav>
       
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-        <div className="flex items-center">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+        <div className="flex items-center px-2">
           <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold">
             {userInitials}
           </div>
           <div className="ml-3 flex-1">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-              {user?.full_name || user?.email || 'User'}
+            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+              {user?.full_name || 'User'}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {user?.is_team_leader ? 'Team Leader' : 'Agent'}
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {user?.email}
             </p>
           </div>
         </div>
