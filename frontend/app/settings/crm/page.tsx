@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircleIcon, XCircleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
 
 // CRM providers as defined in the spec
 const CRM_PROVIDERS = [
@@ -117,6 +118,10 @@ export default function CRMSettings() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-5xl mx-auto p-6 md:p-8">
+        <div className="mb-6">
+          <BackButton />
+        </div>
+        
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

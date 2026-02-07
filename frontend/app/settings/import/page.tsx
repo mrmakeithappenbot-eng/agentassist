@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
 
 export default function ImportLeadsPage() {
   const router = useRouter();
@@ -122,6 +123,10 @@ Mike,Johnson,mike@example.com,555-0102,Active,"Phoenix, AZ",250000,400000,buyer;
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <BackButton />
+        </div>
+        
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

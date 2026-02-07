@@ -15,6 +15,7 @@ import {
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
+import BackButton from '@/components/ui/BackButton';
 
 interface Lead {
   id: string;
@@ -197,6 +198,10 @@ export default function LeadsPage() {
 
   return (
     <div className="p-6 md:p-8">
+      <div className="mb-6">
+        <BackButton />
+      </div>
+      
       {/* Header */}
       <div className="mb-8 flex justify-between items-start">
         <div>

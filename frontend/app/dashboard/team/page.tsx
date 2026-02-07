@@ -10,6 +10,7 @@ import {
   XCircleIcon,
   PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
 
 interface TeamMember {
   id: number;
@@ -316,6 +317,10 @@ export default function TeamPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
+        <div className="mb-6">
+          <BackButton />
+        </div>
+        
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

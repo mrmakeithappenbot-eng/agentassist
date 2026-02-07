@@ -9,6 +9,7 @@ import {
   HomeIcon,
   CalendarIcon 
 } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
 
 // Mock data for FSBO leads
 const MOCK_HUNTER_LEADS = [
@@ -106,6 +107,10 @@ export default function HunterPage() {
   
   return (
     <div className="p-6 md:p-8">
+      <div className="mb-6">
+        <BackButton />
+      </div>
+      
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center mb-4">

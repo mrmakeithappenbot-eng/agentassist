@@ -8,6 +8,7 @@ import {
   ShareIcon,
   CheckCircleIcon 
 } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
 
 export default function LaunchpadPage() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -81,6 +82,10 @@ export default function LaunchpadPage() {
   
   return (
     <div className="p-6 md:p-8">
+      <div className="mb-6">
+        <BackButton />
+      </div>
+      
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center mb-4">

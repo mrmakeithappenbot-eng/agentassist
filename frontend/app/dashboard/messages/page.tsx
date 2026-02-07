@@ -9,6 +9,7 @@ import {
   PhoneIcon,
   ClockIcon 
 } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
 
 // Mock pending messages
 const MOCK_MESSAGES = [
@@ -101,6 +102,10 @@ export default function MessagesPage() {
   
   return (
     <div className="p-6 md:p-8">
+      <div className="mb-6">
+        <BackButton />
+      </div>
+      
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
