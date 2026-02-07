@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
+import {
   CalendarIcon,
   PlusIcon,
   ClockIcon,
@@ -60,29 +60,27 @@ export default function CalendarPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
+
       if (!token) {
         setTasks([]);
         return;
       }
-      
-      const response = await fetch(
-        `${API_URL}/api/teams/tasks/my-tasks`,
-        {
+
+      const response = await fetch('/api/tasks/list', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         }
       );
-      
+
       if (!response.ok) {
         console.error('Failed to fetch tasks:', response.status);
         setTasks([]);
         return;
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success && Array.isArray(data.tasks)) {
         // Transform nested format to flat task objects
         const flatTasks: Task[] = data.tasks
@@ -118,14 +116,14 @@ export default function CalendarPage() {
   const handleStatusUpdate = async (taskId: number, status: string) => {
     try {
       const token = localStorage.getItem('token');
-      
+
       // Find the task to get assignment_id
       const task = tasks.find(t => t.id === taskId);
       if (!task?.assignment_id) {
         alert('Cannot update this task');
         return;
       }
-      
+
       const response = await fetch(
         `${API_URL}/api/teams/tasks/update-status`,
         {
@@ -134,15 +132,15 @@ export default function CalendarPage() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             assignment_id: task.assignment_id,
-            status: status 
+            status: status
           })
         }
       );
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         await fetchTasks();
       } else {
@@ -160,29 +158,31 @@ export default function CalendarPage() {
       return;
     }
 
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please log in first');
+      window.location.href = '/login';
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(
-        `${API_URL}/api/teams/tasks/create`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            title: createData.title,
-            description: createData.description || null,
-            task_type: createData.task_type,
-            task_category: createData.task_category,
-            due_date: createData.scheduled_for || null,
-            share_with_team: true,
-            is_private: false
-          })
-        }
-      );
-      
+      const response = await fetch('/api/tasks/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: createData.title,
+          description: createData.description || '',
+          task_type: createData.task_type,
+          task_category: createData.task_category,
+          due_date: createData.scheduled_for || null,
+          share_with_team: true,
+          is_private: false
+        })
+      });
+
       const data = await response.json();
       
       if (data.success) {
@@ -199,8 +199,8 @@ export default function CalendarPage() {
         alert(data.detail || 'Failed to create task');
       }
     } catch (error) {
-      console.error('Error creating task:', error);
-      alert('Error creating task');
+      console.error('Create task error:', error);
+      alert('Network error - please try again');
     }
   };
 
@@ -212,7 +212,7 @@ export default function CalendarPage() {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
-    
+
     return { daysInMonth, startingDayOfWeek };
   };
 
@@ -220,7 +220,7 @@ export default function CalendarPage() {
     return tasks.filter(task => {
       const taskDate = task.start || task.scheduled_for || task.due_date;
       if (!taskDate) return false;
-      
+
       const taskDay = new Date(taskDate);
       return taskDay.getDate() === date.getDate() &&
              taskDay.getMonth() === date.getMonth() &&
@@ -231,20 +231,20 @@ export default function CalendarPage() {
   const renderCalendar = () => {
     const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
     const days = [];
-    
+
     // Empty cells before first day
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(
         <div key={`empty-${i}`} className="h-24 bg-gray-50/50 dark:bg-gray-800/50 rounded-lg"></div>
       );
     }
-    
+
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       const dayTasks = getTasksForDate(date);
       const isToday = new Date().toDateString() === date.toDateString();
-      
+
       days.push(
         <div
           key={day}
@@ -267,7 +267,7 @@ export default function CalendarPage() {
               </span>
             )}
           </div>
-          
+
           <div className="space-y-1">
             {dayTasks.slice(0, 2).map(task => (
               <div
@@ -290,7 +290,7 @@ export default function CalendarPage() {
         </div>
       );
     }
-    
+
     return days;
   };
 
@@ -333,7 +333,7 @@ export default function CalendarPage() {
             View all your tasks and what your AI is handling
           </p>
         </div>
-        
+
         <button
           onClick={() => setShowCreateModal(true)}
           className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-full font-medium text-[15px] shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all flex items-center gap-2"
@@ -383,11 +383,11 @@ export default function CalendarPage() {
           >
             <ChevronLeftIcon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
           </button>
-          
+
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h2>
-          
+
           <button
             onClick={nextMonth}
             className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 smooth-transition"
@@ -414,7 +414,7 @@ export default function CalendarPage() {
       {/* Selected date tasks or all upcoming tasks */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          {selectedDate 
+          {selectedDate
             ? `Tasks for ${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`
             : 'All Upcoming Tasks'}
         </h2>
@@ -459,7 +459,7 @@ export default function CalendarPage() {
                       <div className={`w-3 h-3 rounded-full ${
                         task.task_type === 'mandatory' ? 'bg-red-500' : 'bg-green-500'
                       }`}></div>
-                      
+
                       {task.user_status && (
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           task.user_status === 'accepted' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
@@ -471,13 +471,13 @@ export default function CalendarPage() {
                         </span>
                       )}
                     </div>
-                    
+
                     {task.description && (
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                         {task.description}
                       </p>
                     )}
-                    
+
                     <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                       <div className="flex items-center">
                         <ClockIcon className="w-4 h-4 mr-1" />
@@ -491,16 +491,16 @@ export default function CalendarPage() {
                       <div>Created by: {task.creator_name}</div>
                     </div>
                   </div>
-                  
+
                   {!task.is_creator && (!task.user_status || task.user_status === 'pending') && (
                     <div className="flex gap-2">
-                      <button 
+                      <button
                         onClick={() => handleStatusUpdate(task.id, 'accepted')}
                         className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 smooth-transition text-sm font-medium"
                       >
                         Accept
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleStatusUpdate(task.id, 'declined')}
                         className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 smooth-transition text-sm font-medium"
                       >
@@ -508,9 +508,9 @@ export default function CalendarPage() {
                       </button>
                     </div>
                   )}
-                  
+
                   {!task.is_creator && task.user_status === 'accepted' && (
-                    <button 
+                    <button
                       onClick={() => handleStatusUpdate(task.id, 'completed')}
                       className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 smooth-transition text-sm font-medium"
                     >
@@ -526,11 +526,11 @@ export default function CalendarPage() {
 
       {/* Create Task Modal - Apple Style */}
       {showCreateModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 z-50"
           onClick={() => setShowCreateModal(false)}
         >
-          <div 
+          <div
             className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all"
             onClick={(e) => e.stopPropagation()}
           >
@@ -554,7 +554,7 @@ export default function CalendarPage() {
                 </button>
               </div>
             </div>
-            
+
             {/* Form */}
             <div className="px-6 py-4 space-y-6">
               {/* Title Input */}
@@ -568,7 +568,7 @@ export default function CalendarPage() {
                   autoFocus
                 />
               </div>
-              
+
               {/* Description */}
               <div>
                 <textarea
@@ -579,7 +579,7 @@ export default function CalendarPage() {
                   rows={3}
                 />
               </div>
-              
+
               {/* Type - Segmented Control */}
               <div>
                 <label className="block text-[13px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
@@ -605,7 +605,7 @@ export default function CalendarPage() {
                   ))}
                 </div>
               </div>
-              
+
               {/* Priority - Segmented Control */}
               <div>
                 <label className="block text-[13px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
@@ -630,7 +630,7 @@ export default function CalendarPage() {
                   ))}
                 </div>
               </div>
-              
+
               {/* Date & Time */}
               <div>
                 <label className="block text-[13px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
