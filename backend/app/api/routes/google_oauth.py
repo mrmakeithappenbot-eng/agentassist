@@ -91,7 +91,7 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
     # Create access token
     access_token = create_token(user.id)
     
-    # Redirect to frontend with token
+    # Redirect to frontend callback page with token
     return RedirectResponse(
-        f"{FRONTEND_URL}/dashboard?token={access_token}"
+        f"{FRONTEND_URL}/auth/callback?token={access_token}"
     )
