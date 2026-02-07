@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   mileageLog: 'agentassist_mileage_log',
   expenses: 'agentassist_expenses',
   presets: 'agentassist_expense_presets',
+  homeLocation: 'agentassist_home_location',
 };
 
 export default function ExpensesPage() {
@@ -34,9 +35,13 @@ export default function ExpensesPage() {
     }
 
     try {
-      const response = await fetch(
-        `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=en`
-      );
+      // Build URL with optional location bias
+      let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=en`;
+      if (homeLocation) {
+        url += `&lat=${homeLocation.lat}&lon=${homeLocation.lon}`;
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       const suggestions = data.features?.map((f: any) => ({
@@ -56,6 +61,71 @@ export default function ExpensesPage() {
     } catch (error) {
       console.error('Address search error:', error);
     }
+  };
+
+  // Search for location (city/area)
+  const searchLocation = async (query: string) => {
+    if (query.length < 2) {
+      setLocationSuggestions([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=en`
+      );
+      const data = await response.json();
+      
+      const suggestions = data.features?.map((f: any) => ({
+        display: [
+          f.properties.city || f.properties.name,
+          f.properties.state,
+          f.properties.country
+        ].filter(Boolean).join(', '),
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0]
+      })) || [];
+      
+      setLocationSuggestions(suggestions);
+    } catch (error) {
+      console.error('Location search error:', error);
+    }
+  };
+
+  // Get current location using browser geolocation
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        // Reverse geocode to get city name
+        try {
+          const response = await fetch(
+            `https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}`
+          );
+          const data = await response.json();
+          const place = data.features?.[0]?.properties;
+          const name = place?.city || place?.name || 'Your Location';
+          
+          setHomeLocation({ lat: latitude, lon: longitude, name });
+          setShowLocationModal(false);
+        } catch (e) {
+          setHomeLocation({ lat: latitude, lon: longitude, name: 'Your Location' });
+          setShowLocationModal(false);
+        }
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        alert('Could not get your location. Please search for your city instead.');
+      }
+    );
   };
 
   // Calculate distance using OSRM (free routing service)
@@ -95,6 +165,13 @@ export default function ExpensesPage() {
   const [mileageLog, setMileageLog] = useState<Array<{id: number; date: string; from: string; to: string; miles: number; purpose: string}>>([]);
   const [expenses, setExpenses] = useState<Array<{id: number; date: string; description: string; amount: number; category: string; receipt?: string}>>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  
+  // Home location for biasing address search
+  const [homeLocation, setHomeLocation] = useState<{lat: number; lon: number; name: string} | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationSearch, setLocationSearch] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<Array<{display: string; lat: number; lon: number}>>([]);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -127,12 +204,25 @@ export default function ExpensesPage() {
           { id: 4, name: 'Staging Consultation', cost: 150, category: 'Services' },
         ]);
       }
+      
+      const savedLocation = localStorage.getItem(STORAGE_KEYS.homeLocation);
+      if (savedLocation) {
+        setHomeLocation(JSON.parse(savedLocation));
+      }
     } catch (e) {
       console.error('Error loading expense data:', e);
     }
     
     setDataLoaded(true);
   }, []);
+
+  // Save home location when it changes
+  useEffect(() => {
+    if (!dataLoaded) return;
+    if (homeLocation) {
+      localStorage.setItem(STORAGE_KEYS.homeLocation, JSON.stringify(homeLocation));
+    }
+  }, [homeLocation, dataLoaded]);
 
   // Save to localStorage whenever data changes
   useEffect(() => {
@@ -248,6 +338,27 @@ export default function ExpensesPage() {
       {/* Mileage Tab */}
       {activeTab === 'mileage' && (
         <div className="space-y-6">
+          {/* Location Badge */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {homeLocation ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm">
+                  📍 Searching near {homeLocation.name}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                  🌍 No location set
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowLocationModal(true)}
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              {homeLocation ? 'Change Location' : 'Set My Location'}
+            </button>
+          </div>
+
           {/* Add Mileage Form */}
           <div className="glass dark:glass-dark rounded-2xl p-6 border border-white/30 dark:border-white/10">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Log Trip</h3>
@@ -604,6 +715,102 @@ export default function ExpensesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Location Modal */}
+      {showLocationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Set Your Location
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+              This helps find addresses in your area faster.
+            </p>
+
+            {/* Use Current Location Button */}
+            <button
+              onClick={getCurrentLocation}
+              disabled={isGettingLocation}
+              className="w-full mb-4 px-4 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isGettingLocation ? (
+                <>⏳ Getting location...</>
+              ) : (
+                <>📍 Use My Current Location</>
+              )}
+            </button>
+
+            <div className="text-center text-gray-500 text-sm mb-4">— or search —</div>
+
+            {/* Search Input */}
+            <div className="relative mb-4">
+              <input
+                type="text"
+                placeholder="Search city or area..."
+                value={locationSearch}
+                onChange={(e) => {
+                  setLocationSearch(e.target.value);
+                  searchLocation(e.target.value);
+                }}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
+              />
+              {locationSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 rounded-xl shadow-lg border border-gray-200 dark:border-gray-600 max-h-48 overflow-y-auto">
+                  {locationSuggestions.map((loc, i) => (
+                    <button
+                      key={i}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                      onClick={() => {
+                        setHomeLocation({ lat: loc.lat, lon: loc.lon, name: loc.display.split(',')[0] });
+                        setShowLocationModal(false);
+                        setLocationSearch('');
+                        setLocationSuggestions([]);
+                      }}
+                    >
+                      📍 {loc.display}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Current Location Display */}
+            {homeLocation && (
+              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Current: <strong>{homeLocation.name}</strong>
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowLocationModal(false);
+                  setLocationSearch('');
+                  setLocationSuggestions([]);
+                }}
+                className="flex-1 px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              {homeLocation && (
+                <button
+                  onClick={() => {
+                    setHomeLocation(null);
+                    localStorage.removeItem(STORAGE_KEYS.homeLocation);
+                    setShowLocationModal(false);
+                  }}
+                  className="flex-1 px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                >
+                  Clear Location
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
