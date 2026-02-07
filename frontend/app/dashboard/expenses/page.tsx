@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   CalculatorIcon,
   MapPinIcon,
@@ -10,7 +10,123 @@ import {
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
+// Google Maps API key - set in .env.local as NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+
+// Extend window for Google Maps
+declare global {
+  interface Window {
+    google?: {
+      maps: {
+        places: {
+          Autocomplete: new (input: HTMLInputElement, options?: any) => any;
+        };
+        DistanceMatrixService: new () => any;
+        TravelMode: { DRIVING: string };
+        UnitSystem: { IMPERIAL: number };
+      };
+    };
+  }
+}
+
 export default function ExpensesPage() {
+  const fromInputRef = useRef<HTMLInputElement>(null);
+  const toInputRef = useRef<HTMLInputElement>(null);
+  const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
+  const [mapsLoaded, setMapsLoaded] = useState(false);
+
+  // Load Google Maps script
+  useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY || typeof window === 'undefined') return;
+    
+    // Check if already loaded
+    if (window.google?.maps?.places) {
+      setMapsLoaded(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.onload = () => setMapsLoaded(true);
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup if needed
+    };
+  }, []);
+
+  // Setup autocomplete when maps loads
+  useEffect(() => {
+    if (!mapsLoaded || !window.google?.maps?.places) return;
+
+    const setupAutocomplete = (input: HTMLInputElement | null, field: 'from' | 'to') => {
+      if (!input) return;
+      
+      const autocomplete = new window.google.maps.places.Autocomplete(input, {
+        types: ['address'],
+        componentRestrictions: { country: 'us' }
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place.formatted_address) {
+          setNewMileage(prev => ({ ...prev, [field]: place.formatted_address }));
+        }
+      });
+    };
+
+    setupAutocomplete(fromInputRef.current, 'from');
+    setupAutocomplete(toInputRef.current, 'to');
+  }, [mapsLoaded]);
+
+  // Calculate distance between addresses
+  const calculateDistance = async () => {
+    if (!newMileage.from || !newMileage.to) {
+      alert('Please enter both addresses');
+      return;
+    }
+
+    if (!GOOGLE_MAPS_API_KEY) {
+      alert('Google Maps API key not configured. Please enter miles manually.');
+      return;
+    }
+
+    if (!window.google?.maps) {
+      alert('Google Maps not loaded. Please enter miles manually.');
+      return;
+    }
+
+    setIsCalculatingDistance(true);
+
+    try {
+      const service = new window.google.maps.DistanceMatrixService();
+      
+      service.getDistanceMatrix(
+        {
+          origins: [newMileage.from],
+          destinations: [newMileage.to],
+          travelMode: window.google.maps.TravelMode.DRIVING,
+          unitSystem: window.google.maps.UnitSystem.IMPERIAL,
+        },
+        (response: any, status: any) => {
+          setIsCalculatingDistance(false);
+          
+          if (status === 'OK' && response.rows[0]?.elements[0]?.status === 'OK') {
+            const distanceText = response.rows[0].elements[0].distance.text;
+            const miles = parseFloat(distanceText.replace(/[^0-9.]/g, ''));
+            setNewMileage(prev => ({ ...prev, miles: miles.toFixed(1) }));
+          } else {
+            alert('Could not calculate distance. Please enter miles manually.');
+          }
+        }
+      );
+    } catch (error) {
+      setIsCalculatingDistance(false);
+      alert('Error calculating distance. Please enter miles manually.');
+    }
+  };
+
   // Expense tracking state
   const [expensePresets, setExpensePresets] = useState([
     { id: 1, name: 'Yard Sign', cost: 50, category: 'Marketing' },
@@ -139,6 +255,7 @@ export default function ExpensesPage() {
                 className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
               />
               <input
+                ref={fromInputRef}
                 type="text"
                 placeholder="From address"
                 value={newMileage.from}
@@ -146,19 +263,29 @@ export default function ExpensesPage() {
                 className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
               />
               <input
+                ref={toInputRef}
                 type="text"
                 placeholder="To address"
                 value={newMileage.to}
                 onChange={(e) => setNewMileage({...newMileage, to: e.target.value})}
                 className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
               />
-              <input
-                type="number"
-                placeholder="Miles"
-                value={newMileage.miles}
-                onChange={(e) => setNewMileage({...newMileage, miles: e.target.value})}
-                className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Miles"
+                  value={newMileage.miles}
+                  onChange={(e) => setNewMileage({...newMileage, miles: e.target.value})}
+                  className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white"
+                />
+                <button
+                  onClick={calculateDistance}
+                  disabled={isCalculatingDistance || !newMileage.from || !newMileage.to}
+                  className="px-4 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {isCalculatingDistance ? 'Calculating...' : '📍 Calculate'}
+                </button>
+              </div>
               <button
                 onClick={() => {
                   if (newMileage.date && newMileage.miles) {
@@ -177,7 +304,13 @@ export default function ExpensesPage() {
             </div>
             <p className="text-sm text-gray-500 mt-3">
               💡 2026 IRS mileage rate: $0.67/mile
+              {GOOGLE_MAPS_API_KEY && ' • Start typing addresses for autocomplete'}
             </p>
+            {!GOOGLE_MAPS_API_KEY && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⚠️ Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable address autocomplete & auto-calculate
+              </p>
+            )}
           </div>
 
           {/* Mileage Log */}
