@@ -76,7 +76,8 @@ export default function CalendarPage() {
       );
 
       if (!response.ok) {
-        console.error('Failed to fetch tasks:', response.status);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch tasks:', response.status, errorData);
         setTasks([]);
         return;
       }
@@ -187,8 +188,9 @@ export default function CalendarPage() {
       });
 
       const data = await response.json();
+      console.log('Create task response:', response.status, data);
       
-      if (data.success) {
+      if (response.ok && data.success) {
         setCreateData({
           title: '',
           description: '',
@@ -199,7 +201,7 @@ export default function CalendarPage() {
         setShowCreateModal(false);
         await fetchTasks();
       } else {
-        alert(data.detail || 'Failed to create task');
+        alert(data.detail || data.message || `Error ${response.status}: Failed to create task`);
       }
     } catch (error) {
       console.error('Create task error:', error);
