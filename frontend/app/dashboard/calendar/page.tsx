@@ -50,6 +50,9 @@ export default function CalendarPage() {
   useEffect(() => {
     if (userId) {
       fetchTasks();
+    } else {
+      // No user logged in - stop loading
+      setLoading(false);
     }
   }, [userId]);
 
