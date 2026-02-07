@@ -12,7 +12,11 @@ import {
   PencilIcon,
   TrashIcon,
   EyeIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  FireIcon,
+  ChatBubbleLeftIcon,
+  DevicePhoneMobileIcon,
+  ArrowsUpDownIcon
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/ui/BackButton';
@@ -28,7 +32,60 @@ interface Lead {
   location: string | null;
   price_range_min: number | null;
   price_range_max: number | null;
+  // Scoring factors (simulated for demo)
+  lastActivity?: string;
+  emailOpens?: number;
+  websiteVisits?: number;
+  responseTime?: number; // hours
 }
+
+// Calculate lead score (0-100)
+const calculateLeadScore = (lead: Lead): number => {
+  let score = 30; // Base score
+  
+  // Has email (+10)
+  if (lead.email) score += 10;
+  
+  // Has phone (+15) - more valuable than email
+  if (lead.phone) score += 15;
+  
+  // Has budget set (+10)
+  if (lead.price_range_min || lead.price_range_max) score += 10;
+  
+  // Status-based scoring
+  if (lead.status === 'Qualified') score += 20;
+  else if (lead.status === 'Active') score += 15;
+  else if (lead.status === 'Contacted') score += 10;
+  else if (lead.status === 'Cold') score -= 15;
+  
+  // Has location (+5)
+  if (lead.location) score += 5;
+  
+  // Has tags (+5)
+  if (lead.tags && lead.tags.length > 0) score += 5;
+  
+  // Simulated engagement (random for demo)
+  const hash = lead.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+  score += (hash % 15); // Add 0-14 based on ID
+  
+  return Math.min(100, Math.max(0, score));
+};
+
+// Get score color
+const getScoreColor = (score: number): string => {
+  if (score >= 80) return 'text-green-600 bg-green-100 dark:bg-green-900/30';
+  if (score >= 60) return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30';
+  if (score >= 40) return 'text-orange-600 bg-orange-100 dark:bg-orange-900/30';
+  return 'text-red-600 bg-red-100 dark:bg-red-900/30';
+};
+
+// Get score label
+const getScoreLabel = (score: number): string => {
+  if (score >= 80) return 'Hot';
+  if (score >= 60) return 'Warm';
+  if (score >= 40) return 'Cool';
+  return 'Cold';
+};
 
 export default function LeadsPage() {
   const router = useRouter();
@@ -37,6 +94,9 @@ export default function LeadsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [sortBy, setSortBy] = useState<'score' | 'name' | 'status'>('score');
+  const [showMessageModal, setShowMessageModal] = useState<{ lead: Lead; type: 'sms' | 'email' } | null>(null);
+  const [messageText, setMessageText] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -209,10 +269,21 @@ export default function LeadsPage() {
             Your Leads
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            {leads.length} leads total
+            {leads.length} leads total • Sorted by {sortBy}
           </p>
         </div>
-        <button
+        <div className="flex gap-3">
+          {/* Sort Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300"
+          >
+            <option value="score">🔥 Hot Leads First</option>
+            <option value="name">👤 Name A-Z</option>
+            <option value="status">📊 By Status</option>
+          </select>
+          <button
           onClick={() => {
             setEditingLead(null);
             setFormData({
@@ -249,11 +320,38 @@ export default function LeadsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {leads.map((lead) => (
+          {[...leads]
+            .sort((a, b) => {
+              if (sortBy === 'score') {
+                return calculateLeadScore(b) - calculateLeadScore(a);
+              } else if (sortBy === 'name') {
+                return (a.first_name || '').localeCompare(b.first_name || '');
+              } else {
+                return (a.status || '').localeCompare(b.status || '');
+              }
+            })
+            .map((lead) => {
+              const score = calculateLeadScore(lead);
+              return (
             <div
               key={lead.id}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow"
+              className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow ${
+                score >= 80 ? 'ring-2 ring-green-500' : ''
+              }`}
             >
+              {/* Lead Score Badge */}
+              <div className="flex items-center justify-between mb-3">
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-bold ${getScoreColor(score)}`}>
+                  <FireIcon className="w-4 h-4" />
+                  {score} - {getScoreLabel(score)}
+                </div>
+                {score >= 80 && (
+                  <span className="text-xs text-green-600 font-medium animate-pulse">
+                    🔥 Call Now!
+                  </span>
+                )}
+              </div>
+
               {/* Lead Name */}
               <div className="flex items-center mb-4">
                 <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
@@ -317,8 +415,32 @@ export default function LeadsPage() {
                 </div>
               )}
 
+              {/* Quick Contact Buttons */}
+              <div className="flex gap-2 mb-3">
+                {lead.phone && (
+                  <button
+                    onClick={() => setShowMessageModal({ lead, type: 'sms' })}
+                    className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    title="Send SMS"
+                  >
+                    <DevicePhoneMobileIcon className="w-4 h-4 mr-1" />
+                    Text
+                  </button>
+                )}
+                {lead.email && (
+                  <button
+                    onClick={() => setShowMessageModal({ lead, type: 'email' })}
+                    className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Send Email"
+                  >
+                    <EnvelopeIcon className="w-4 h-4 mr-1" />
+                    Email
+                  </button>
+                )}
+              </div>
+
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
                   className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
@@ -337,14 +459,15 @@ export default function LeadsPage() {
                 </button>
                 <button
                   onClick={() => handleDelete(lead.id)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                  className="px-3 py-2 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                   title="Delete lead"
                 >
-                  <TrashIcon className="w-4 h-4 mr-1" />
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
-          ))}
+              );
+            })}
         </div>
       )}
 
@@ -536,6 +659,136 @@ export default function LeadsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* SMS/Email Modal */}
+      {showMessageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-xl">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                {showMessageModal.type === 'sms' ? (
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <DevicePhoneMobileIcon className="w-5 h-5 text-green-600" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                    <EnvelopeIcon className="w-5 h-5 text-blue-600" />
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {showMessageModal.type === 'sms' ? 'Send SMS' : 'Send Email'}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    To: {showMessageModal.lead.first_name} {showMessageModal.lead.last_name}
+                    {showMessageModal.type === 'sms' 
+                      ? ` (${showMessageModal.lead.phone})`
+                      : ` (${showMessageModal.lead.email})`
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {showMessageModal.type === 'email' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Re: Your Home Search"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Message
+                </label>
+                <textarea
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  rows={showMessageModal.type === 'sms' ? 3 : 6}
+                  placeholder={showMessageModal.type === 'sms' 
+                    ? `Hi ${showMessageModal.lead.first_name}, just checking in...`
+                    : `Hi ${showMessageModal.lead.first_name},\n\nI wanted to follow up...`
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                />
+                {showMessageModal.type === 'sms' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {messageText.length}/160 characters
+                  </p>
+                )}
+              </div>
+
+              {/* Quick Templates */}
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Templates:</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setMessageText(`Hi ${showMessageModal.lead.first_name}! Just checking in to see if you're still looking for a home. Let me know how I can help!`)}
+                    className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Check-in
+                  </button>
+                  <button
+                    onClick={() => setMessageText(`Hi ${showMessageModal.lead.first_name}! I found some great listings that match what you're looking for. When would be a good time to chat?`)}
+                    className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    New Listings
+                  </button>
+                  <button
+                    onClick={() => setMessageText(`Hi ${showMessageModal.lead.first_name}! Just wanted to schedule a quick call to discuss your home search. Are you available this week?`)}
+                    className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Schedule Call
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowMessageModal(null);
+                  setMessageText('');
+                }}
+                className="flex-1 px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  alert(`✅ ${showMessageModal.type === 'sms' ? 'SMS' : 'Email'} sent to ${showMessageModal.lead.first_name}!\n\n(Demo mode - in production this would send via Twilio/SendGrid)`);
+                  setShowMessageModal(null);
+                  setMessageText('');
+                }}
+                className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                  showMessageModal.type === 'sms' 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {showMessageModal.type === 'sms' ? (
+                  <>
+                    <DevicePhoneMobileIcon className="w-4 h-4" />
+                    Send SMS
+                  </>
+                ) : (
+                  <>
+                    <EnvelopeIcon className="w-4 h-4" />
+                    Send Email
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
