@@ -175,7 +175,7 @@ function StatCard({ title, value, change, icon: Icon, positive }: any) {
 }
 
 function QuickActionCard({ title, description, href, badge, color }: any) {
-  const colorClasses = {
+  const colorClasses: Record<string, string> = {
     blue: 'border-primary-200 dark:border-primary-800 hover:border-primary-300',
     purple: 'border-purple-200 dark:border-purple-800 hover:border-purple-300',
     gray: 'border-gray-200 dark:border-gray-700 hover:border-gray-300',
@@ -200,7 +200,7 @@ function QuickActionCard({ title, description, href, badge, color }: any) {
 }
 
 function ActivityItem({ time, title, status }: any) {
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     pending: 'bg-warning-100 text-warning-800',
     sent: 'bg-blue-100 text-blue-800',
     success: 'bg-green-100 text-green-800',

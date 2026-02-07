@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.api.routes import test, auth, teams, team_leads, activities
+from app.api.routes import test, auth, teams, team_leads, activities, google_oauth
 from app.api.routes import leads as leads_routes
 
 @asynccontextmanager
@@ -47,6 +47,7 @@ app.add_middleware(
 # Include routers
 app.include_router(test.router, prefix="/api/test", tags=["Test"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(google_oauth.router, prefix="/api/auth", tags=["Google OAuth"])
 app.include_router(leads_routes.router, prefix="/api/leads", tags=["Leads"])
 app.include_router(activities.router, prefix="/api/leads", tags=["Activities"])
 app.include_router(teams.router, prefix="/api/teams", tags=["Teams"])
