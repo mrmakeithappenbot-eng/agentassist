@@ -11,7 +11,8 @@ import {
   UserGroupIcon,
   ArrowUpTrayIcon,
   ArrowRightOnRectangleIcon,
-  CalendarIcon
+  CalendarIcon,
+  CalculatorIcon
 } from '@heroicons/react/24/outline';
 import { logout, getUser } from '@/lib/auth';
 
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'The Hunter', href: '/dashboard/hunter', icon: MagnifyingGlassIcon },
   { name: 'Listing Launchpad', href: '/dashboard/launchpad', icon: PhotoIcon },
   { name: 'Team', href: '/dashboard/team', icon: UserGroupIcon },
+  { name: 'Expenses', href: '/dashboard/expenses', icon: CalculatorIcon },
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ];
 
