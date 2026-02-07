@@ -173,11 +173,12 @@ export default function CalendarPage() {
           },
           body: JSON.stringify({
             title: createData.title,
-            description: createData.description,
+            description: createData.description || null,
             task_type: createData.task_type,
             task_category: createData.task_category,
             due_date: createData.scheduled_for || null,
-            assign_to_members: []
+            share_with_team: true,
+            is_private: false
           })
         }
       );
@@ -195,7 +196,7 @@ export default function CalendarPage() {
         setShowCreateModal(false);
         await fetchTasks();
       } else {
-        alert('Failed to create task');
+        alert(data.detail || 'Failed to create task');
       }
     } catch (error) {
       console.error('Error creating task:', error);
@@ -335,10 +336,10 @@ export default function CalendarPage() {
         
         <button
           onClick={() => setShowCreateModal(true)}
-          className="glass dark:glass-dark px-6 py-3 rounded-xl font-semibold text-primary-600 dark:text-primary-400 hover:shadow-xl smooth-transition flex items-center"
+          className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-full font-medium text-[15px] shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all flex items-center gap-2"
         >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Create Task
+          <PlusIcon className="w-5 h-5" />
+          New Task
         </button>
       </div>
 
@@ -523,96 +524,125 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Create Task Modal */}
+      {/* Create Task Modal - Apple Style */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="glass dark:glass-dark rounded-3xl p-8 max-w-lg w-full border border-white/30 dark:border-white/10 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-              Create New Task
-            </h2>
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 z-50"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div 
+            className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-zinc-800">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="text-blue-500 hover:text-blue-600 font-medium text-[17px] transition-colors"
+                >
+                  Cancel
+                </button>
+                <h2 className="text-[17px] font-semibold text-gray-900 dark:text-white">
+                  New Task
+                </h2>
+                <button
+                  onClick={handleCreateTask}
+                  className="text-blue-500 hover:text-blue-600 font-semibold text-[17px] transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
             
-            <div className="space-y-4 mb-6">
+            {/* Form */}
+            <div className="px-6 py-4 space-y-6">
+              {/* Title Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Task Title *
-                </label>
                 <input
                   type="text"
                   value={createData.title}
                   onChange={(e) => setCreateData({ ...createData, title: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
-                  placeholder="e.g., Team standup meeting"
+                  className="w-full px-4 py-3 bg-gray-100 dark:bg-zinc-800 rounded-xl text-[17px] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                  placeholder="Task name"
+                  autoFocus
                 />
               </div>
               
+              {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
                 <textarea
                   value={createData.description}
                   onChange={(e) => setCreateData({ ...createData, description: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
-                  placeholder="Optional description..."
+                  className="w-full px-4 py-3 bg-gray-100 dark:bg-zinc-800 rounded-xl text-[17px] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                  placeholder="Notes"
                   rows={3}
                 />
               </div>
               
+              {/* Type - Segmented Control */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-[13px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
                   Type
                 </label>
-                <select 
-                  value={createData.task_category}
-                  onChange={(e) => setCreateData({ ...createData, task_category: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 text-gray-900 dark:text-white"
-                >
-                  <option value="manual">Manual (You do it)</option>
-                  <option value="auto">Automated (AI handles it)</option>
-                  <option value="team">Team Task</option>
-                </select>
+                <div className="flex bg-gray-100 dark:bg-zinc-800 rounded-xl p-1">
+                  {[
+                    { value: 'manual', label: 'Manual' },
+                    { value: 'auto', label: 'AI Auto' },
+                    { value: 'team', label: 'Team' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setCreateData({ ...createData, task_category: option.value })}
+                      className={`flex-1 py-2 px-3 rounded-lg text-[15px] font-medium transition-all ${
+                        createData.task_category === option.value
+                          ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               
+              {/* Priority - Segmented Control */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-[13px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
                   Priority
                 </label>
-                <select 
-                  value={createData.task_type}
-                  onChange={(e) => setCreateData({ ...createData, task_type: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 text-gray-900 dark:text-white"
-                >
-                  <option value="optional">Optional</option>
-                  <option value="mandatory">Mandatory</option>
-                </select>
+                <div className="flex bg-gray-100 dark:bg-zinc-800 rounded-xl p-1">
+                  {[
+                    { value: 'optional', label: 'Optional', color: 'text-green-500' },
+                    { value: 'mandatory', label: 'Required', color: 'text-red-500' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setCreateData({ ...createData, task_type: option.value })}
+                      className={`flex-1 py-2 px-3 rounded-lg text-[15px] font-medium transition-all ${
+                        createData.task_type === option.value
+                          ? `bg-white dark:bg-zinc-700 ${option.color} shadow-sm`
+                          : 'text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               
+              {/* Date & Time */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Scheduled For
+                <label className="block text-[13px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
+                  Date & Time
                 </label>
                 <input
                   type="datetime-local"
                   value={createData.scheduled_for}
                   onChange={(e) => setCreateData({ ...createData, scheduled_for: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 bg-gray-100 dark:bg-zinc-800 rounded-xl text-[17px] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                 />
               </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-6 py-3 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-400 dark:hover:bg-gray-500 smooth-transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateTask}
-                className="flex-1 px-6 py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 smooth-transition"
-              >
-                Create Task
-              </button>
             </div>
           </div>
         </div>
