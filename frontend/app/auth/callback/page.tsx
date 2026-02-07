@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get('token');
+    // Get token from URL
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
     
     if (token) {
       // Store token
@@ -20,7 +21,7 @@ export default function AuthCallbackPage() {
       // No token, redirect to login with error
       router.push('/login?error=auth_failed');
     }
-  }, [searchParams, router]);
+  }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800">
