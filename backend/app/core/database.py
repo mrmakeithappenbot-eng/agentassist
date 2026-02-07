@@ -60,7 +60,7 @@ def init_db():
         from app.models.user import User
         from app.models.leads import Lead
         from app.models.activity import LeadActivity
-        from app.models.team_simple import Team, Task, TaskAssignment
+        from app.models.team import Team, Task, TaskAssignment, DailyUpdate
         
         # Create all tables (only creates missing ones)
         Base.metadata.create_all(bind=engine)
