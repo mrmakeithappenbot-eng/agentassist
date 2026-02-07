@@ -165,36 +165,40 @@ async def create_task(
     db: Session = Depends(get_db)
 ):
     """Create a new task"""
-    
-    # Parse due date if provided
-    due_date = None
-    if request.due_date:
-        try:
-            due_date = datetime.fromisoformat(request.due_date.replace('Z', '+00:00'))
-        except:
-            pass
-    
-    # Create task
-    new_task = Task(
-        title=request.title,
-        description=request.description,
-        task_type=request.task_type,
-        task_category=request.task_category,
-        due_date=due_date,
-        share_with_team=request.share_with_team,
-        is_private=request.is_private,
-        creator_id=current_user.id,
-        team_id=request.team_id or current_user.team_id
-    )
-    
-    db.add(new_task)
-    db.commit()
-    db.refresh(new_task)
-    
-    return {
-        "success": True,
-        "task": new_task.to_dict()
-    }
+    try:
+        # Parse due date if provided
+        due_date = None
+        if request.due_date:
+            try:
+                due_date = datetime.fromisoformat(request.due_date.replace('Z', '+00:00'))
+            except:
+                pass
+        
+        # Create task
+        new_task = Task(
+            title=request.title,
+            description=request.description or "",
+            task_type=request.task_type or "optional",
+            task_category=request.task_category or "manual",
+            due_date=due_date,
+            share_with_team=request.share_with_team if request.share_with_team is not None else True,
+            is_private=request.is_private if request.is_private is not None else False,
+            creator_id=current_user.id,
+            team_id=request.team_id or current_user.team_id
+        )
+        
+        db.add(new_task)
+        db.commit()
+        db.refresh(new_task)
+        
+        return {
+            "success": True,
+            "task": new_task.to_dict()
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating task: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 
 @router.post("/tasks/assign")
 async def assign_task(

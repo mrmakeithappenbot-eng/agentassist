@@ -1,0 +1,35 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "oiugh",
+      "description": "kuytd",
+      "task_type": "optional",
+      "task_category": "manual",
+      "due_date": null,
+      "scheduled_for": null,
+      "start": null,
+      "share_with_team": true,
+      "is_private": false,
+      "creator_id": 1,
+      "creator_name": "You",
+      "created_at": "2026-02-07T21:45:02.697Z"
+    },
+    {
+      "id": 2,
+      "title": "luiyvf",
+      "description": "kuytfd",
+      "task_type": "optional",
+      "task_category": "manual",
+      "due_date": "2026-02-09T15:45",
+      "scheduled_for": "2026-02-09T15:45",
+      "start": "2026-02-09T15:45",
+      "share_with_team": true,
+      "is_private": false,
+      "creator_id": 1,
+      "creator_name": "You",
+      "created_at": "2026-02-07T21:45:13.528Z"
+    }
+  ],
+  "nextId": 3
+}

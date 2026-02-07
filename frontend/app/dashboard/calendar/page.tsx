@@ -60,8 +60,10 @@ export default function CalendarPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      console.log('Fetching tasks, token present:', !!token);
 
       if (!token) {
+        console.log('No token - skipping fetch');
         setTasks([]);
         return;
       }
@@ -80,6 +82,7 @@ export default function CalendarPage() {
       }
 
       const data = await response.json();
+      console.log('Tasks response:', data);
 
       if (data.success && Array.isArray(data.tasks)) {
         // Transform nested format to flat task objects
