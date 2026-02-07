@@ -3,6 +3,7 @@ User Model for Database
 """
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from passlib.context import CryptContext
 from app.core.database import Base
@@ -25,6 +26,11 @@ class User(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)
+    
+    # Relationships
+    created_tasks = relationship("Task", back_populates="creator", foreign_keys="Task.created_by_user_id")
+    task_responses = relationship("TaskResponse", back_populates="user")
+    daily_updates = relationship("DailyUpdate", back_populates="user")
     
     def verify_password(self, password: str) -> bool:
         """Check if provided password matches hash"""
