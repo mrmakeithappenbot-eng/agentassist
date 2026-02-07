@@ -25,6 +25,10 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -145,3 +149,34 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
 async def get_current_user_profile(current_user: User = Depends(get_current_user)):
     """Get current user profile"""
     return current_user.to_dict()
+
+@router.put("/profile")
+async def update_profile(
+    request: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user profile"""
+    print(f"Updating profile for user {current_user.id}: name={request.full_name}, phone={request.phone}")
+    
+    try:
+        # Update fields if provided
+        if request.full_name is not None:
+            current_user.full_name = request.full_name
+        if request.phone is not None:
+            current_user.phone = request.phone
+        
+        db.commit()
+        db.refresh(current_user)
+        
+        print(f"Profile updated successfully: {current_user.to_dict()}")
+        return current_user.to_dict()
+    except Exception as e:
+        print(f"Error updating profile: {e}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update profile: {str(e)}"
+        )

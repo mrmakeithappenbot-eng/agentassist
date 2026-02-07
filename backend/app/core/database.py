@@ -50,6 +50,27 @@ def get_db() -> Generator[Session, None, None]:
     finally:
         db.close()
 
+def migrate_add_column(table_name: str, column_name: str, column_type: str = "TEXT"):
+    """
+    Add a column to an existing table if it doesn't exist.
+    Simple migration helper for SQLite.
+    """
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            # Check if column exists
+            result = conn.execute(text(f"PRAGMA table_info({table_name})"))
+            columns = [row[1] for row in result]
+            
+            if column_name not in columns:
+                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+                conn.commit()
+                print(f"✅ Added column '{column_name}' to '{table_name}'")
+            else:
+                print(f"ℹ️ Column '{column_name}' already exists in '{table_name}'")
+    except Exception as e:
+        print(f"⚠️ Migration warning: {e}")
+
 def init_db():
     """
     Initialize database - create all tables
@@ -68,6 +89,9 @@ def init_db():
         # List tables created
         table_names = list(Base.metadata.tables.keys())
         print(f"✅ Database initialized with tables: {', '.join(table_names)}")
+        
+        # Run migrations for new columns on existing tables
+        migrate_add_column("users", "phone", "TEXT")
         
     except Exception as e:
         print(f"❌ Database initialization error: {e}")

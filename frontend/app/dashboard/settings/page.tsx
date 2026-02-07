@@ -26,6 +26,7 @@ import BackButton from '@/components/ui/BackButton';
 interface UserProfile {
   email: string;
   full_name: string;
+  phone?: string;
   id: string;
 }
 
@@ -42,6 +43,11 @@ export default function SettingsPage() {
     weeklyDigest: false
   });
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Account form state
+  const [formData, setFormData] = useState({ full_name: '', phone: '' });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Expense tracking state
   const [expensePresets, setExpensePresets] = useState([
@@ -76,6 +82,11 @@ export default function SettingsPage() {
         if (response.ok) {
           const data = await response.json();
           setUser(data);
+          // Initialize form with user data
+          setFormData({
+            full_name: data.full_name || '',
+            phone: data.phone || ''
+          });
         }
       } catch (error) {
         console.error('Failed to fetch profile:', error);
@@ -90,6 +101,45 @@ export default function SettingsPage() {
     const savedTheme = localStorage.getItem('theme') || 'system';
     setTheme(savedTheme);
   }, [router]);
+
+  // Save profile changes
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+      
+      const response = await fetch(`${apiUrl}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          full_name: formData.full_name,
+          phone: formData.phone
+        })
+      });
+      
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUser(updatedUser);
+        setSaveMessage({ type: 'success', text: 'Profile saved successfully!' });
+        // Clear message after 3 seconds
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        const error = await response.json();
+        setSaveMessage({ type: 'error', text: error.detail || 'Failed to save profile' });
+      }
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      setSaveMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -211,7 +261,8 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={user?.full_name || ''}
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                       placeholder="Enter your name"
                       className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500"
                     />
@@ -236,6 +287,8 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="(555) 123-4567"
                       className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500"
                     />
@@ -243,8 +296,21 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-                  <button className="px-6 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors">
-                    Save Changes
+                  {saveMessage && (
+                    <div className={`mb-4 p-3 rounded-lg text-sm ${
+                      saveMessage.type === 'success' 
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' 
+                        : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                    }`}>
+                      {saveMessage.text}
+                    </div>
+                  )}
+                  <button 
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                    className="px-6 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>

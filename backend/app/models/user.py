@@ -17,6 +17,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     is_team_leader = Column(Boolean, default=False)
     
@@ -44,6 +45,7 @@ class User(Base):
             'id': str(self.id),
             'email': self.email,
             'full_name': self.full_name,
+            'phone': self.phone,
             'is_active': self.is_active,
             'is_team_leader': self.is_team_leader,
             'created_at': self.created_at.isoformat() if self.created_at else None
