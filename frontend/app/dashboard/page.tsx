@@ -125,9 +125,9 @@ export default function Dashboard() {
           color="purple"
         />
         <QuickActionCard 
-          title="CRM Settings"
-          description="Manage your CRM connection and sync settings"
-          href="/settings/crm"
+          title="Settings"
+          description="Account, notifications, and preferences"
+          href="/settings"
           color="gray"
         />
       </div>
