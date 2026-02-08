@@ -1,345 +1,327 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   MagnifyingGlassIcon, 
   PlusIcon, 
   EnvelopeIcon,
   PhoneIcon,
   HomeIcon,
-  CalendarIcon 
+  CalendarIcon,
+  ArrowPathIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
-// Mock data for FSBO leads
-const MOCK_HUNTER_LEADS = [
-  {
-    id: 1,
-    address: '1234 Maple Street',
-    city: 'Austin',
-    state: 'TX',
-    zip: '78701',
-    price: 450000,
-    bedrooms: 3,
-    bathrooms: 2.5,
-    sqft: 2100,
-    ownerName: 'Michael Johnson',
-    ownerPhone: '(512) 555-0123',
-    ownerEmail: 'mjohnson@email.com',
-    source: 'Zillow FSBO',
-    foundAt: '2024-02-04 08:15 AM',
-    status: 'new',
-    listingUrl: 'https://zillow.com/...',
-  },
-  {
-    id: 2,
-    address: '5678 Oak Avenue',
-    city: 'Austin',
-    state: 'TX',
-    zip: '78704',
-    price: 625000,
-    bedrooms: 4,
-    bathrooms: 3,
-    sqft: 2800,
-    ownerName: 'Sarah Williams',
-    ownerPhone: null,
-    ownerEmail: null,
-    source: 'Craigslist FSBO',
-    foundAt: '2024-02-04 08:45 AM',
-    status: 'enriching',
-    listingUrl: 'https://craigslist.org/...',
-  },
-  {
-    id: 3,
-    address: '910 Pine Court',
-    city: 'Round Rock',
-    state: 'TX',
-    zip: '78664',
-    price: 385000,
-    bedrooms: 3,
-    bathrooms: 2,
-    sqft: 1850,
-    ownerName: 'Robert Chen',
-    ownerPhone: '(512) 555-0456',
-    ownerEmail: 'rchen@email.com',
-    source: 'Zillow FSBO',
-    foundAt: '2024-02-04 09:20 AM',
-    status: 'contacted',
-    listingUrl: 'https://zillow.com/...',
-  },
-];
+interface HunterLead {
+  id: number;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  price: number;
+  bedrooms: number;
+  bathrooms: number;
+  sqft: number;
+  ownerName: string | null;
+  ownerPhone: string | null;
+  ownerEmail: string | null;
+  source: string;
+  foundAt: string;
+  status: 'new' | 'contacted' | 'enriching' | 'added';
+  listingUrl: string;
+}
+
+const STORAGE_KEY = 'agentassist_hunter_leads';
 
 export default function HunterPage() {
-  const [leads, setLeads] = useState(MOCK_HUNTER_LEADS);
-  const [zipCodes, setZipCodes] = useState('78701, 78704');
-  const [isScanning, setIsScanning] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<any>(null);
-  
-  const handleScan = () => {
-    setIsScanning(true);
-    // Simulate scraping process
+  const [leads, setLeads] = useState<HunterLead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchLocation, setSearchLocation] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'new' | 'contacted' | 'added'>('all');
+
+  // Load saved leads from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setLeads(JSON.parse(saved));
+    }
+    setLoading(false);
+  }, []);
+
+  // Save leads to localStorage
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+    }
+  }, [leads, loading]);
+
+  const handleSearch = async () => {
+    if (!searchLocation.trim()) return;
+    
+    setIsSearching(true);
+    // TODO: Integrate with real FSBO/Expired listing APIs
+    // For now, show a message that search is coming soon
     setTimeout(() => {
-      setIsScanning(false);
-      alert('Scan complete! Found 3 new FSBO leads.');
-    }, 3000);
+      setIsSearching(false);
+      alert('FSBO & Expired listing search coming soon! This will integrate with Zillow, Realtor.com, and MLS data feeds.');
+    }, 1000);
   };
-  
-  const handleAddToCRM = (leadId: number) => {
-    const lead = leads.find(l => l.id === leadId);
-    if (lead) {
-      alert(`Adding "${lead.address}" to your CRM...`);
-      // This would call the backend API
+
+  const handleAddToLeads = async (lead: HunterLead) => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      
+      const response = await fetch(`${apiUrl}/api/leads/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          first_name: lead.ownerName?.split(' ')[0] || 'Unknown',
+          last_name: lead.ownerName?.split(' ').slice(1).join(' ') || '',
+          email: lead.ownerEmail,
+          phone: lead.ownerPhone,
+          location: `${lead.address}, ${lead.city}, ${lead.state} ${lead.zip}`,
+          price_max: lead.price,
+          status: 'New',
+          tags: ['FSBO', lead.source],
+          notes: `Found via Hunter - ${lead.source}\nListing: ${lead.listingUrl}`
+        })
+      });
+
+      if (response.ok) {
+        setLeads(prev => prev.map(l => 
+          l.id === lead.id ? { ...l, status: 'added' as const } : l
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to add lead:', error);
     }
   };
-  
-  const handleDraftMessage = (leadId: number) => {
-    const lead = leads.find(l => l.id === leadId);
-    if (lead) {
-      setSelectedLead(lead);
+
+  const handleMarkContacted = (id: number) => {
+    setLeads(prev => prev.map(l => 
+      l.id === id ? { ...l, status: 'contacted' as const } : l
+    ));
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm('Remove this lead from Hunter?')) {
+      setLeads(prev => prev.filter(l => l.id !== id));
     }
   };
-  
-  const statusColors: Record<string, string> = {
-    new: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    enriching: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    contacted: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+
+  const filteredLeads = leads.filter(lead => {
+    if (filter === 'all') return true;
+    return lead.status === filter;
+  });
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(price);
   };
-  
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 md:p-8">
-      <div className="mb-6">
-        <BackButton />
-      </div>
-      
-      {/* Page Header */}
+      {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center mb-4">
-          <MagnifyingGlassIcon className="w-8 h-8 text-primary-600 mr-3" />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            The Hunter
-          </h1>
+        <div className="flex items-center gap-4 mb-2">
+          <BackButton />
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">The Hunter</h1>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
-          Automated FSBO & Expired Listing Discovery. Never run out of prospects.
+          Find FSBO and expired listings in your area
         </p>
       </div>
-      
-      {/* Scan Controls */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Scan Settings
-        </h2>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Target ZIP Codes (comma-separated)
-            </label>
+
+      {/* Search Section */}
+      <div className="glass dark:glass-dark rounded-2xl p-6 mb-8 border border-white/30 dark:border-white/10">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Search for Leads</h2>
+        <div className="flex gap-4">
+          <div className="flex-1">
             <input
               type="text"
-              value={zipCodes}
-              onChange={(e) => setZipCodes(e.target.value)}
-              placeholder="78701, 78704, 78664"
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              placeholder="Enter city, zip code, or neighborhood..."
+              value={searchLocation}
+              onChange={(e) => setSearchLocation(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 
+                text-gray-900 dark:text-white placeholder-gray-400
+                focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
             />
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              The Hunter scans Zillow FSBO, Craigslist, and County Clerk sites daily at 8:00 AM
-            </p>
           </div>
-          
-          <div className="flex gap-4">
-            <button
-              onClick={handleScan}
-              disabled={isScanning}
-              className="px-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors flex items-center"
-            >
-              {isScanning ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Scanning...
-                </>
-              ) : (
-                <>
-                  <MagnifyingGlassIcon className="w-5 h-5 mr-2" />
-                  Scan Now
-                </>
-              )}
-            </button>
-            
-            <div className="flex-1 flex items-center text-sm text-gray-600 dark:text-gray-400">
-              <CalendarIcon className="w-5 h-5 mr-2" />
-              Next automatic scan: Tomorrow at 8:00 AM
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Found Today</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">12</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Enriching</p>
-          <p className="text-2xl font-bold text-yellow-600">3</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Ready to Contact</p>
-          <p className="text-2xl font-bold text-green-600">9</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Contacted</p>
-          <p className="text-2xl font-bold text-blue-600">47</p>
-        </div>
-      </div>
-      
-      {/* Leads Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            New Prospects ({leads.length})
-          </h2>
+          <button
+            onClick={handleSearch}
+            disabled={isSearching || !searchLocation.trim()}
+            className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl 
+              disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 smooth-transition"
+          >
+            {isSearching ? (
+              <ArrowPathIcon className="w-5 h-5 animate-spin" />
+            ) : (
+              <MagnifyingGlassIcon className="w-5 h-5" />
+            )}
+            {isSearching ? 'Searching...' : 'Hunt'}
+          </button>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Property
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Owner
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Details
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Source
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-start">
-                      <HomeIcon className="w-5 h-5 text-gray-400 mr-3 mt-1" />
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {lead.address}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {lead.city}, {lead.state} {lead.zip}
-                        </p>
-                        <p className="text-sm font-semibold text-green-600 dark:text-green-400 mt-1">
-                          ${lead.price.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm">
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {lead.ownerName || 'Enriching...'}
-                      </p>
-                      {lead.ownerPhone && (
-                        <p className="text-gray-600 dark:text-gray-400 flex items-center mt-1">
-                          <PhoneIcon className="w-4 h-4 mr-1" />
-                          {lead.ownerPhone}
-                        </p>
-                      )}
-                      {lead.ownerEmail && (
-                        <p className="text-gray-600 dark:text-gray-400 flex items-center mt-1">
-                          <EnvelopeIcon className="w-4 h-4 mr-1" />
-                          {lead.ownerEmail}
-                        </p>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                    <p>{lead.bedrooms} bd • {lead.bathrooms} ba</p>
-                    <p>{lead.sqft.toLocaleString()} sqft</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900 dark:text-white">{lead.source}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{lead.foundAt}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[lead.status]}`}>
-                      {lead.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAddToCRM(lead.id)}
-                        className="px-3 py-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-900/50 text-sm font-medium transition-colors flex items-center"
-                        title="Add to CRM"
-                      >
-                        <PlusIcon className="w-4 h-4 mr-1" />
-                        Add
-                      </button>
-                      <button
-                        onClick={() => handleDraftMessage(lead.id)}
-                        disabled={!lead.ownerPhone && !lead.ownerEmail}
-                        className="px-3 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 text-sm font-medium transition-colors disabled:opacity-50 flex items-center"
-                        title="Draft Icebreaker"
-                      >
-                        <EnvelopeIcon className="w-4 h-4 mr-1" />
-                        Draft
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-      {/* AI Icebreaker Modal */}
-      {selectedLead && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              AI-Generated Icebreaker
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              For: {selectedLead.address}, {selectedLead.city}
-            </p>
-            <textarea
-              className="w-full h-32 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white mb-4"
-              defaultValue={`Hi ${selectedLead.ownerName ? selectedLead.ownerName.split(' ')[0] : 'there'}! I noticed you're selling ${selectedLead.address} yourself. I work with buyers in ${selectedLead.city} and wanted to reach out. Would you be open to a buyer's agent bringing a qualified client to view the property?`}
-            />
-            <div className="flex gap-4 justify-end">
-              <button
-                onClick={() => setSelectedLead(null)}
-                className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  alert('Message sent to approval queue!');
-                  setSelectedLead(null);
-                }}
-                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-              >
-                Send to Approvals
-              </button>
+        {/* Coming Soon Notice */}
+        <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+          <div className="flex items-start gap-3">
+            <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Coming Soon</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Automated FSBO & expired listing search will integrate with MLS data feeds, Zillow, and public records.
+                For now, you can manually add leads you find.
+              </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex gap-2 mb-6">
+        {[
+          { id: 'all', label: 'All Leads' },
+          { id: 'new', label: 'New' },
+          { id: 'contacted', label: 'Contacted' },
+          { id: 'added', label: 'Added to CRM' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setFilter(tab.id as any)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium smooth-transition
+              ${filter === tab.id 
+                ? 'bg-primary-600 text-white' 
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+          >
+            {tab.label}
+            {tab.id !== 'all' && (
+              <span className="ml-2 text-xs opacity-70">
+                ({leads.filter(l => l.status === tab.id).length})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Leads List */}
+      {filteredLeads.length === 0 ? (
+        <div className="glass dark:glass-dark rounded-2xl p-12 text-center border border-white/30 dark:border-white/10">
+          <MagnifyingGlassIcon className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No leads yet</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Use the search above to find FSBO and expired listings, or manually add leads you discover.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredLeads.map(lead => (
+            <div 
+              key={lead.id}
+              className="glass dark:glass-dark rounded-xl p-5 border border-white/30 dark:border-white/10"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Property Info */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <HomeIcon className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {lead.address}
+                    </h3>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium
+                      ${lead.status === 'new' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                        lead.status === 'added' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {lead.status === 'added' ? 'In CRM' : lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+                    </span>
+                  </div>
+                  
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+                    {lead.city}, {lead.state} {lead.zip}
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
+                    <span className="font-semibold text-green-600 dark:text-green-400">
+                      {formatPrice(lead.price)}
+                    </span>
+                    <span>{lead.bedrooms} bed</span>
+                    <span>{lead.bathrooms} bath</span>
+                    <span>{lead.sqft.toLocaleString()} sqft</span>
+                    <span className="text-primary-600 dark:text-primary-400">{lead.source}</span>
+                  </div>
+                  
+                  {lead.ownerName && (
+                    <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                      Owner: <span className="font-medium">{lead.ownerName}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  {lead.ownerPhone && (
+                    <a
+                      href={`tel:${lead.ownerPhone}`}
+                      className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg smooth-transition"
+                      title="Call"
+                    >
+                      <PhoneIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    </a>
+                  )}
+                  {lead.ownerEmail && (
+                    <a
+                      href={`mailto:${lead.ownerEmail}`}
+                      className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg smooth-transition"
+                      title="Email"
+                    >
+                      <EnvelopeIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    </a>
+                  )}
+                  
+                  {lead.status === 'new' && (
+                    <button
+                      onClick={() => handleMarkContacted(lead.id)}
+                      className="px-3 py-2 text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 
+                        hover:bg-yellow-200 dark:hover:bg-yellow-900/50 rounded-lg smooth-transition"
+                    >
+                      Mark Contacted
+                    </button>
+                  )}
+                  
+                  {lead.status !== 'added' && (
+                    <button
+                      onClick={() => handleAddToLeads(lead)}
+                      className="px-3 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg smooth-transition flex items-center gap-1"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                      Add to CRM
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

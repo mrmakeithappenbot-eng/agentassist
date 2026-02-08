@@ -32,7 +32,7 @@ interface PipelineStats {
 }
 
 export default function Dashboard() {
-  const [hunterLeads] = useState(12);
+  const [hunterLeads, setHunterLeads] = useState(0);
   const [activeLeads, setActiveLeads] = useState(0);
   const [totalLeads, setTotalLeads] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -96,14 +96,24 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
-        setActiveLeads(47);
-        setTotalLeads(47);
+        // Keep at 0 on error - no fake data
       } finally {
         setLoading(false);
       }
     };
     
     fetchData();
+    
+    // Load hunter leads count from localStorage
+    const hunterData = localStorage.getItem('agentassist_hunter_leads');
+    if (hunterData) {
+      try {
+        const leads = JSON.parse(hunterData);
+        setHunterLeads(leads.length);
+      } catch (e) {
+        // ignore
+      }
+    }
   }, []);
   
   const formatCurrency = (value: number): string => {
@@ -212,12 +222,14 @@ export default function Dashboard() {
             positive
           />
         </Link>
-        <StatCard 
-          title="Hunter Prospects"
-          value={hunterLeads.toString()}
-          change="New today"
-          icon={ClockIcon}
-        />
+        <Link href="/dashboard/hunter">
+          <StatCard 
+            title="Hunter Prospects"
+            value={hunterLeads.toString()}
+            change="FSBO & Expired"
+            icon={ClockIcon}
+          />
+        </Link>
         <StatCard 
           title="Closed This Month"
           value={loading ? '...' : formatCurrency(pipelineStats.closedValue)}
@@ -238,7 +250,7 @@ export default function Dashboard() {
         />
         <QuickActionCard 
           title="The Hunter"
-          description="View new FSBO & expired leads found today"
+          description="Find FSBO & expired listings in your area"
           href="/dashboard/hunter"
           badge={hunterLeads > 0 ? hunterLeads.toString() : undefined}
           color="blue"
@@ -256,23 +268,34 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           Recent Activity
         </h2>
-        <div className="space-y-4">
-          <ActivityItem 
-            time="Just now"
-            title="Pipeline synced with database"
-            status="success"
-          />
-          <ActivityItem 
-            time="5 minutes ago"
-            title={`${totalLeads} leads in your database`}
-            status="info"
-          />
-          <ActivityItem 
-            time="1 hour ago"
-            title="12 new FSBO leads found in Austin, TX"
-            status="success"
-          />
-        </div>
+        {totalLeads > 0 ? (
+          <div className="space-y-4">
+            <ActivityItem 
+              time="Just now"
+              title="Dashboard loaded"
+              status="success"
+            />
+            <ActivityItem 
+              time="Synced"
+              title={`${totalLeads} leads in your database`}
+              status="info"
+            />
+            {pipelineStats.closedCount > 0 && (
+              <ActivityItem 
+                time="This month"
+                title={`${pipelineStats.closedCount} deal${pipelineStats.closedCount !== 1 ? 's' : ''} closed`}
+                status="success"
+              />
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-gray-500 dark:text-gray-400">No recent activity yet.</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+              Import leads to get started!
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
