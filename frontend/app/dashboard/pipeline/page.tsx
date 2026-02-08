@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, DragEvent } from 'react';
+import { useState, useEffect, useCallback, DragEvent } from 'react';
 import {
   PhoneIcon,
   EnvelopeIcon,
@@ -11,17 +11,18 @@ import {
   CurrencyDollarIcon,
   CheckCircleIcon,
   UserGroupIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
 const STAGES = [
-  { id: 'new', name: 'New', color: 'gray' },
-  { id: 'contacted', name: 'Contacted', color: 'blue' },
-  { id: 'qualified', name: 'Qualified', color: 'indigo' },
-  { id: 'showing', name: 'Showing', color: 'purple' },
-  { id: 'under_contract', name: 'Under Contract', color: 'violet' },
-  { id: 'closing', name: 'Closing', color: 'fuchsia' },
-  { id: 'closed_won', name: 'Closed', color: 'green' },
+  { id: 'new', name: 'New', color: 'gray', statuses: ['New', 'Cold', null, ''] },
+  { id: 'contacted', name: 'Contacted', color: 'blue', statuses: ['Contacted'] },
+  { id: 'qualified', name: 'Qualified', color: 'indigo', statuses: ['Qualified'] },
+  { id: 'showing', name: 'Showing', color: 'purple', statuses: ['Active', 'Showing'] },
+  { id: 'under_contract', name: 'Under Contract', color: 'violet', statuses: ['Under Contract'] },
+  { id: 'closing', name: 'Closing', color: 'fuchsia', statuses: ['Closing'] },
+  { id: 'closed_won', name: 'Closed', color: 'green', statuses: ['Closed', 'Closed Won'] },
 ];
 
 const stageColors: Record<string, string> = {
@@ -34,6 +35,31 @@ const stageColors: Record<string, string> = {
   green: 'border-t-green-500',
 };
 
+// Map stage ID back to a status string for the API
+const stageToStatus: Record<string, string> = {
+  'new': 'New',
+  'contacted': 'Contacted',
+  'qualified': 'Qualified',
+  'showing': 'Active',
+  'under_contract': 'Under Contract',
+  'closing': 'Closing',
+  'closed_won': 'Closed',
+};
+
+interface Lead {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  status: string | null;
+  location: string | null;
+  price_range_min: number | null;
+  price_range_max: number | null;
+  tags: string[];
+  created_at?: string;
+}
+
 interface PipelineLead {
   id: string;
   name: string;
@@ -44,13 +70,14 @@ interface PipelineLead {
   property_address: string | null;
   lead_type: 'buyer' | 'seller' | 'both';
   priority: 'hot' | 'warm' | 'cold';
-  stage_entered_at: string;
-  created_at: string;
+  originalStatus: string | null;
 }
 
 export default function PipelinePage() {
   const [leads, setLeads] = useState<PipelineLead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -66,75 +93,92 @@ export default function PipelinePage() {
     priority: 'warm' as 'hot' | 'warm' | 'cold',
   });
 
-  useEffect(() => {
-    const loadLeads = async () => {
-      try {
-        const stored = localStorage.getItem('pipeline_leads');
-        if (stored) {
-          setLeads(JSON.parse(stored));
-          setLoading(false);
-          return;
-        }
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/api/leads?limit=100`);
-        const data = await response.json();
-
-        if (data.success && data.leads) {
-          const pipelineLeads: PipelineLead[] = data.leads.map((lead: any) => ({
-            id: lead.id,
-            name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Unknown',
-            email: lead.email,
-            phone: lead.phone,
-            stage: mapStatusToStage(lead.status),
-            deal_value: lead.price_range_max || null,
-            property_address: lead.location || null,
-            lead_type: 'buyer',
-            priority: getPriorityFromScore(lead),
-            stage_entered_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-          }));
-          setLeads(pipelineLeads);
-          localStorage.setItem('pipeline_leads', JSON.stringify(pipelineLeads));
-        }
-      } catch (err) {
-        console.error('Failed to load pipeline leads:', err);
-      }
-      setLoading(false);
+  // Convert API lead to pipeline lead
+  const transformLead = (lead: Lead): PipelineLead => {
+    const stage = STAGES.find(s => s.statuses.includes(lead.status || ''))?.id || 'new';
+    const score = calculateScore(lead);
+    
+    return {
+      id: lead.id,
+      name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Unknown',
+      email: lead.email,
+      phone: lead.phone,
+      stage,
+      deal_value: lead.price_range_max || null,
+      property_address: lead.location || null,
+      lead_type: 'buyer',
+      priority: score >= 70 ? 'hot' : score >= 50 ? 'warm' : 'cold',
+      originalStatus: lead.status,
     };
-    loadLeads();
-  }, []);
-
-  useEffect(() => {
-    if (!loading && leads.length > 0) {
-      localStorage.setItem('pipeline_leads', JSON.stringify(leads));
-    }
-  }, [leads, loading]);
-
-  const mapStatusToStage = (status: string | null): string => {
-    const statusMap: Record<string, string> = {
-      'New': 'new', 'Contacted': 'contacted', 'Qualified': 'qualified',
-      'Active': 'showing', 'Under Contract': 'under_contract',
-      'Closed': 'closed_won', 'Cold': 'new',
-    };
-    return statusMap[status || ''] || 'new';
   };
 
-  const getPriorityFromScore = (lead: any): 'hot' | 'warm' | 'cold' => {
+  const calculateScore = (lead: Lead): number => {
     let score = 30;
     if (lead.email) score += 10;
     if (lead.phone) score += 15;
     if (lead.price_range_max) score += 10;
     if (lead.status === 'Qualified') score += 20;
-    if (score >= 70) return 'hot';
-    if (score >= 50) return 'warm';
-    return 'cold';
+    else if (lead.status === 'Active') score += 15;
+    return score;
   };
 
-  const getDaysInStage = (lead: PipelineLead): number => {
-    const entered = new Date(lead.stage_entered_at);
-    const now = new Date();
-    return Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24));
+  // Fetch leads from API
+  const fetchLeads = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setSyncing(true);
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/leads?limit=200`);
+      const data = await response.json();
+
+      if (data.success && data.leads) {
+        const pipelineLeads = data.leads.map(transformLead);
+        setLeads(pipelineLeads);
+        setLastSync(new Date());
+      }
+    } catch (err) {
+      console.error('Failed to fetch leads:', err);
+    }
+    
+    setLoading(false);
+    setSyncing(false);
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchLeads(false);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchLeads]);
+
+  // Update lead status in database when dropped
+  const updateLeadStatus = async (leadId: string, newStage: string) => {
+    const newStatus = stageToStatus[newStage];
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    
+    try {
+      const response = await fetch(`${apiUrl}/api/leads/${leadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to update lead status');
+        // Refresh to get correct state
+        fetchLeads(false);
+      }
+    } catch (err) {
+      console.error('Error updating lead:', err);
+      fetchLeads(false);
+    }
   };
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>, leadId: string) => {
@@ -164,12 +208,15 @@ export default function PipelinePage() {
     setDragOverStage(null);
     setDraggingId(null);
 
-    setLeads(prev => prev.map(lead => {
-      if (lead.id === leadId && lead.stage !== newStage) {
-        return { ...lead, stage: newStage, stage_entered_at: new Date().toISOString() };
-      }
-      return lead;
-    }));
+    const lead = leads.find(l => l.id === leadId);
+    if (lead && lead.stage !== newStage) {
+      // Optimistic update
+      setLeads(prev => prev.map(l => 
+        l.id === leadId ? { ...l, stage: newStage } : l
+      ));
+      // Persist to database
+      updateLeadStatus(leadId, newStage);
+    }
   };
 
   const totalLeads = leads.length;
@@ -197,52 +244,23 @@ export default function PipelinePage() {
     setShowModal(true);
   };
 
-  const openAddModal = () => {
-    setEditingLead(null);
-    setFormData({
-      name: '', email: '', phone: '', stage: 'new', deal_value: '',
-      property_address: '', lead_type: 'buyer', priority: 'warm',
-    });
-    setShowModal(true);
-  };
+  const handleSave = async () => {
+    if (!editingLead || !formData.name.trim()) return;
 
-  const handleSave = () => {
-    if (!formData.name.trim()) return;
+    // Update local state
+    setLeads(prev => prev.map(lead => {
+      if (lead.id === editingLead.id) {
+        return { ...lead, stage: formData.stage };
+      }
+      return lead;
+    }));
 
-    if (editingLead) {
-      setLeads(prev => prev.map(lead => {
-        if (lead.id === editingLead.id) {
-          const stageChanged = lead.stage !== formData.stage;
-          return {
-            ...lead, name: formData.name, email: formData.email || null,
-            phone: formData.phone || null, stage: formData.stage,
-            deal_value: formData.deal_value ? parseFloat(formData.deal_value) : null,
-            property_address: formData.property_address || null,
-            lead_type: formData.lead_type, priority: formData.priority,
-            stage_entered_at: stageChanged ? new Date().toISOString() : lead.stage_entered_at,
-          };
-        }
-        return lead;
-      }));
-    } else {
-      const newLead: PipelineLead = {
-        id: `pl_${Date.now()}`, name: formData.name, email: formData.email || null,
-        phone: formData.phone || null, stage: formData.stage,
-        deal_value: formData.deal_value ? parseFloat(formData.deal_value) : null,
-        property_address: formData.property_address || null,
-        lead_type: formData.lead_type, priority: formData.priority,
-        stage_entered_at: new Date().toISOString(), created_at: new Date().toISOString(),
-      };
-      setLeads(prev => [...prev, newLead]);
+    // If stage changed, update in database
+    if (formData.stage !== editingLead.stage) {
+      await updateLeadStatus(editingLead.id, formData.stage);
     }
+
     setShowModal(false);
-  };
-
-  const handleDelete = () => {
-    if (editingLead && confirm('Remove this lead from the pipeline?')) {
-      setLeads(prev => prev.filter(l => l.id !== editingLead.id));
-      setShowModal(false);
-    }
   };
 
   if (loading) {
@@ -257,40 +275,33 @@ export default function PipelinePage() {
     <div className="p-6 md:p-8">
       {/* Page Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-4 mb-2">
-          <BackButton />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Pipeline</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-4">
+            <BackButton />
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Pipeline</h1>
+          </div>
+          <button
+            onClick={() => fetchLeads(false)}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 
+              hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 
+              rounded-lg smooth-transition disabled:opacity-50"
+          >
+            <ArrowPathIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Refresh'}
+          </button>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
-          Track your deals from first contact to close
+          Live sync with your leads • {lastSync && `Last updated ${lastSync.toLocaleTimeString()}`}
         </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard 
-          title="Total Leads"
-          value={totalLeads.toString()}
-          icon={UserGroupIcon}
-        />
-        <StatCard 
-          title="Pipeline Value"
-          value={formatCurrency(pipelineValue)}
-          icon={CurrencyDollarIcon}
-          positive
-        />
-        <StatCard 
-          title="Closed Won"
-          value={closedWon.toString()}
-          icon={CheckCircleIcon}
-          positive
-        />
-        <StatCard 
-          title="Closed Value"
-          value={formatCurrency(closedValue)}
-          icon={ArrowTrendingUpIcon}
-          positive
-        />
+        <StatCard title="Total Leads" value={totalLeads.toString()} icon={UserGroupIcon} />
+        <StatCard title="Pipeline Value" value={formatCurrency(pipelineValue)} icon={CurrencyDollarIcon} positive />
+        <StatCard title="Closed Won" value={closedWon.toString()} icon={CheckCircleIcon} positive />
+        <StatCard title="Closed Value" value={formatCurrency(closedValue)} icon={ArrowTrendingUpIcon} positive />
       </div>
 
       {/* Kanban Board */}
@@ -329,8 +340,6 @@ export default function PipelinePage() {
                 {/* Cards Container */}
                 <div className="p-3 space-y-3 min-h-[150px] max-h-[55vh] overflow-y-auto">
                   {stageLeads.map(lead => {
-                    const daysInStage = getDaysInStage(lead);
-                    const isStale = daysInStage > 7;
                     const isDragging = draggingId === lead.id;
 
                     return (
@@ -399,12 +408,6 @@ export default function PipelinePage() {
                                 <EnvelopeIcon className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
                               </a>
                             )}
-                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded
-                              ${isStale 
-                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
-                                : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
-                              {daysInStage}d
-                            </span>
                           </div>
                         </div>
                       </div>
@@ -424,18 +427,16 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Floating Add Button */}
-      <button
-        onClick={openAddModal}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary-600 hover:bg-primary-700 
-          rounded-full shadow-lg flex items-center justify-center smooth-transition
-          hover:scale-110 hover:shadow-xl"
-      >
-        <PlusIcon className="w-6 h-6 text-white" />
-      </button>
+      {/* Info Banner */}
+      <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+        <p className="text-sm text-blue-800 dark:text-blue-300">
+          <strong>Live Sync:</strong> This pipeline syncs with your leads database. Drag cards between columns to update lead status. 
+          New leads from CSV imports, Open Houses, or anywhere else appear automatically.
+        </p>
+      </div>
 
       {/* Modal */}
-      {showModal && (
+      {showModal && editingLead && (
         <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowModal(false)}
@@ -444,10 +445,9 @@ export default function PipelinePage() {
             className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                {editingLead ? 'Edit Lead' : 'New Lead'}
+                {editingLead.name}
               </h2>
               <button onClick={() => setShowModal(false)}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition">
@@ -455,55 +455,34 @@ export default function PipelinePage() {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="px-6 py-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
-                    text-gray-900 dark:text-white placeholder-gray-400
-                    focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
-                  placeholder="John Smith"
-                  autoFocus
-                />
+              {/* Contact Info */}
+              <div className="flex gap-3">
+                {editingLead.phone && (
+                  <a href={`tel:${editingLead.phone}`}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 
+                      rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 smooth-transition">
+                    <PhoneIcon className="w-5 h-5" />
+                    <span className="text-sm font-medium">Call</span>
+                  </a>
+                )}
+                {editingLead.email && (
+                  <a href={`mailto:${editingLead.email}`}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 
+                      rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 smooth-transition">
+                    <EnvelopeIcon className="w-5 h-5" />
+                    <span className="text-sm font-medium">Email</span>
+                  </a>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone</label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(f => ({ ...f, phone: e.target.value }))}
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
-                      text-gray-900 dark:text-white placeholder-gray-400
-                      focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Email</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(f => ({ ...f, email: e.target.value }))}
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
-                      text-gray-900 dark:text-white placeholder-gray-400
-                      focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
-                    placeholder="john@email.com"
-                  />
-                </div>
-              </div>
-
+              {/* Stage Selector */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Stage</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stage</label>
                 <select
                   value={formData.stage}
                   onChange={(e) => setFormData(f => ({ ...f, stage: e.target.value }))}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 
                     text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                 >
                   {STAGES.map(s => (
@@ -512,88 +491,33 @@ export default function PipelinePage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Deal Value</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                  <input
-                    type="number"
-                    value={formData.deal_value}
-                    onChange={(e) => setFormData(f => ({ ...f, deal_value: e.target.value }))}
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl pl-8 pr-4 py-2.5 
-                      text-gray-900 dark:text-white placeholder-gray-400
-                      focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
-                    placeholder="350,000"
-                  />
+              {/* Details */}
+              {editingLead.property_address && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <MapPinIcon className="w-4 h-4" />
+                  <span className="text-sm">{editingLead.property_address}</span>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Property Address</label>
-                <input
-                  type="text"
-                  value={formData.property_address}
-                  onChange={(e) => setFormData(f => ({ ...f, property_address: e.target.value }))}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
-                    text-gray-900 dark:text-white placeholder-gray-400
-                    focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
-                  placeholder="123 Main St, Austin, TX"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Type</label>
-                  <select
-                    value={formData.lead_type}
-                    onChange={(e) => setFormData(f => ({ ...f, lead_type: e.target.value as any }))}
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
-                      text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
-                  >
-                    <option value="buyer">Buyer</option>
-                    <option value="seller">Seller</option>
-                    <option value="both">Both</option>
-                  </select>
+              )}
+              
+              {editingLead.deal_value && (
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <CurrencyDollarIcon className="w-4 h-4" />
+                  <span className="text-sm font-semibold">{formatCurrency(editingLead.deal_value)} estimated value</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Priority</label>
-                  <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData(f => ({ ...f, priority: e.target.value as any }))}
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
-                      text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
-                  >
-                    <option value="hot">Hot</option>
-                    <option value="warm">Warm</option>
-                    <option value="cold">Cold</option>
-                  </select>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
-              <div>
-                {editingLead && (
-                  <button onClick={handleDelete}
-                    className="text-sm text-red-600 hover:text-red-700 font-medium">
-                    Delete Lead
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium smooth-transition">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={!formData.name.trim()}
-                  className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl 
-                    text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed smooth-transition">
-                  {editingLead ? 'Save Changes' : 'Add Lead'}
-                </button>
-              </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
+              <button onClick={() => setShowModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium smooth-transition">
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl 
+                  text-sm font-semibold smooth-transition">
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
