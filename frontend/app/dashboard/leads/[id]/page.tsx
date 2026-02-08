@@ -70,6 +70,11 @@ export default function LeadDetailPage() {
     content: ''
   });
   const [submitting, setSubmitting] = useState(false);
+  
+  // Notes editing state
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const fetchLead = async () => {
     try {
@@ -159,6 +164,45 @@ export default function LeadDetailPage() {
       console.error(err);
       alert('Error deleting activity');
     }
+  };
+
+  const handleEditNotes = () => {
+    setNotesValue(lead?.notes || '');
+    setEditingNotes(true);
+  };
+
+  const handleSaveNotes = async () => {
+    setSavingNotes(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/leads/${leadId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ notes: notesValue })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state
+        setLead(prev => prev ? { ...prev, notes: notesValue } : null);
+        setEditingNotes(false);
+      } else {
+        alert('Failed to save notes: ' + (data.error || data.detail));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving notes');
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  const handleCancelNotes = () => {
+    setEditingNotes(false);
+    setNotesValue('');
   };
 
   useEffect(() => {
@@ -296,18 +340,56 @@ export default function LeadDetailPage() {
           </div>
         )}
 
-        {/* Notes */}
-        {lead.notes && (
-          <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-            <div className="flex items-start">
-              <DocumentTextIcon className="w-5 h-5 mr-3 text-yellow-600 dark:text-yellow-400 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">Notes</p>
-                <p className="text-yellow-700 dark:text-yellow-300 whitespace-pre-wrap">{lead.notes}</p>
+        {/* Notes - Editable */}
+        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center">
+              <DocumentTextIcon className="w-5 h-5 mr-3 text-yellow-600 dark:text-yellow-400" />
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Notes</p>
+            </div>
+            {!editingNotes && (
+              <button
+                onClick={handleEditNotes}
+                className="flex items-center text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100"
+              >
+                <PencilIcon className="w-4 h-4 mr-1" />
+                Edit
+              </button>
+            )}
+          </div>
+          
+          {editingNotes ? (
+            <div>
+              <textarea
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+                rows={5}
+                placeholder="Add notes about this lead..."
+                className="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-3">
+                <button
+                  onClick={handleCancelNotes}
+                  className="px-3 py-1.5 text-sm border border-yellow-300 dark:border-yellow-700 rounded-lg text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={savingNotes}
+                  className="px-3 py-1.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50"
+                >
+                  {savingNotes ? 'Saving...' : 'Save Notes'}
+                </button>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-yellow-700 dark:text-yellow-300 whitespace-pre-wrap ml-8">
+              {lead.notes || <span className="italic text-yellow-500">No notes yet. Click Edit to add some.</span>}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Activity Timeline */}
