@@ -104,6 +104,42 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/stats")
+async def get_lead_stats(db: Session = Depends(get_db)):
+    """
+    Get lead statistics from database
+    """
+    try:
+        # Count total leads
+        total = db.query(Lead).count()
+        
+        # Count active leads
+        active = db.query(Lead).filter(
+            Lead.status.in_(['Active', 'New', 'active', 'new', 'Contacted', 'Qualified'])
+        ).count()
+        
+        return {
+            "success": True,
+            "stats": {
+                "total_leads": total,
+                "active_leads": active,
+                "new_today": 0,
+                "response_rate": 0
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "stats": {
+                "total_leads": 0,
+                "active_leads": 0,
+                "new_today": 0,
+                "response_rate": 0
+            }
+        }
+
 @router.put("/{lead_id}")
 async def update_lead(lead_id: int, lead_update: LeadUpdate, db: Session = Depends(get_db)):
     """
@@ -438,40 +474,4 @@ async def get_leads(
             "count": 0,
             "leads": [],
             "error": str(e)
-        }
-
-@router.get("/stats")
-async def get_lead_stats(db: Session = Depends(get_db)):
-    """
-    Get lead statistics from database
-    """
-    try:
-        # Count total leads
-        total = db.query(Lead).count()
-        
-        # Count active leads
-        active = db.query(Lead).filter(
-            Lead.status.in_(['Active', 'New', 'active', 'new'])
-        ).count()
-        
-        return {
-            "success": True,
-            "stats": {
-                "total_leads": total,
-                "active_leads": active,
-                "new_today": 0,  # TODO: Filter by date
-                "response_rate": 0
-            }
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "stats": {
-                "total_leads": 0,
-                "active_leads": 0,
-                "new_today": 0,
-                "response_rate": 0
-            }
         }
