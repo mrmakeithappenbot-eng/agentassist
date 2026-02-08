@@ -42,16 +42,18 @@ class LeadUpdate(BaseModel):
 
 class LeadResponse(BaseModel):
     id: str
-    first_name: Optional[str]
-    last_name: Optional[str]
-    email: Optional[str]
-    phone: Optional[str]
-    status: Optional[str]
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
     tags: List[str] = []
-    location: Optional[str]
-    address: Optional[str]
-    price_range_min: Optional[int]
-    price_range_max: Optional[int]
+    location: Optional[str] = None
+    address: Optional[str] = None
+    price_range_min: Optional[int] = None
+    price_range_max: Optional[int] = None
+    notes: Optional[str] = None
+    created_at: Optional[str] = None
 
 @router.post("/create")
 async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
@@ -99,7 +101,9 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
                 location=db_lead.location,
                 address=db_lead.address,
                 price_range_min=db_lead.price_min,
-                price_range_max=db_lead.price_max
+                price_range_max=db_lead.price_max,
+                notes=db_lead.notes,
+                created_at=db_lead.created_at.isoformat() if db_lead.created_at else None
             )
         }
         
@@ -197,7 +201,9 @@ async def update_lead(lead_id: int, lead_update: LeadUpdate, db: Session = Depen
                 location=db_lead.location,
                 address=db_lead.address,
                 price_range_min=db_lead.price_min,
-                price_range_max=db_lead.price_max
+                price_range_max=db_lead.price_max,
+                notes=db_lead.notes,
+                created_at=db_lead.created_at.isoformat() if db_lead.created_at else None
             )
         }
         
@@ -254,8 +260,11 @@ async def get_lead(lead_id: int, db: Session = Depends(get_db)):
                 status=db_lead.status,
                 tags=db_lead.tags or [],
                 location=db_lead.location,
+                address=db_lead.address,
                 price_range_min=db_lead.price_min,
-                price_range_max=db_lead.price_max
+                price_range_max=db_lead.price_max,
+                notes=db_lead.notes,
+                created_at=db_lead.created_at.isoformat() if db_lead.created_at else None
             )
         }
         
@@ -465,8 +474,11 @@ async def get_leads(
                 status=lead.status,
                 tags=lead.tags or [],
                 location=lead.location,
+                address=lead.address,
                 price_range_min=lead.price_min,
-                price_range_max=lead.price_max
+                price_range_max=lead.price_max,
+                notes=lead.notes,
+                created_at=lead.created_at.isoformat() if lead.created_at else None
             ))
         
         return {
