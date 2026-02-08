@@ -1,586 +1,526 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchWithAuth } from '@/lib/auth';
 import {
   UserGroupIcon,
+  TrophyIcon,
+  ChartBarIcon,
+  FireIcon,
+  StarIcon,
   PlusIcon,
+  ArrowTrendingUpIcon,
+  CalendarIcon,
+  CurrencyDollarIcon,
   CheckCircleIcon,
-  ClockIcon,
-  XCircleIcon,
-  PaperAirplaneIcon
+  UserPlusIcon,
+  ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
 interface TeamMember {
   id: number;
+  name: string;
   email: string;
-  full_name: string;
-  is_team_leader: boolean;
+  role: 'leader' | 'member';
+  avatar?: string;
+  stats: {
+    dealsClosedYTD: number;
+    dealsClosedMonth: number;
+    leadsAdded: number;
+    volumeYTD: number;
+    activePipeline: number;
+  };
+  joinedAt: string;
 }
 
-interface Task {
-  assignment_id?: number;
-  task: {
-    id: number;
-    title: string;
-    description: string;
-    task_type: string;
-    due_date: string | null;
-  };
-  status?: string;
+interface Goal {
+  id: number;
+  type: 'deals' | 'volume' | 'leads';
+  target: number;
+  current: number;
+  period: 'yearly' | 'monthly' | 'weekly';
+  year: number;
 }
+
+const STORAGE_KEY = 'agentassist_team_data';
 
 export default function TeamPage() {
-  const [team, setTeam] = useState<any>(null);
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLeader, setIsLeader] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [performance, setPerformance] = useState<any[]>([]);
-  const [activity, setActivity] = useState<any[]>([]);
-  
-  // Modal states
-  const [showCreateTeam, setShowCreateTeam] = useState(false);
-  const [showInviteMember, setShowInviteMember] = useState(false);
-  const [showCreateTask, setShowCreateTask] = useState(false);
-  
-  // Form states
-  const [teamName, setTeamName] = useState('');
-  const [teamDescription, setTeamDescription] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskDescription, setTaskDescription] = useState('');
-  const [taskType, setTaskType] = useState('optional');
-  const [error, setError] = useState('');
-  
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'members' | 'goals'>('leaderboard');
+  const [teamData, setTeamData] = useState<{
+    teamName: string;
+    joinCode: string;
+    members: TeamMember[];
+    goals: Goal[];
+  }>({
+    teamName: 'The Dream Team',
+    joinCode: 'DREAM2026',
+    members: [],
+    goals: []
+  });
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const [goalForm, setGoalForm] = useState({
+    type: 'deals' as Goal['type'],
+    target: '',
+    period: 'yearly' as Goal['period']
+  });
+
+  // Load data
   useEffect(() => {
-    loadTeamData();
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setTeamData(JSON.parse(saved));
+    } else {
+      // Demo data
+      setTeamData({
+        teamName: 'The Dream Team',
+        joinCode: 'DREAM2026',
+        members: [
+          { id: 1, name: 'You', email: 'you@email.com', role: 'leader', stats: { dealsClosedYTD: 8, dealsClosedMonth: 2, leadsAdded: 45, volumeYTD: 3200000, activePipeline: 1500000 }, joinedAt: '2026-01-01' },
+          { id: 2, name: 'Sarah Johnson', email: 'sarah@email.com', role: 'member', stats: { dealsClosedYTD: 12, dealsClosedMonth: 3, leadsAdded: 67, volumeYTD: 4800000, activePipeline: 2100000 }, joinedAt: '2026-01-15' },
+          { id: 3, name: 'Mike Chen', email: 'mike@email.com', role: 'member', stats: { dealsClosedYTD: 6, dealsClosedMonth: 1, leadsAdded: 32, volumeYTD: 2100000, activePipeline: 800000 }, joinedAt: '2026-02-01' },
+          { id: 4, name: 'Emily Davis', email: 'emily@email.com', role: 'member', stats: { dealsClosedYTD: 10, dealsClosedMonth: 2, leadsAdded: 55, volumeYTD: 3900000, activePipeline: 1200000 }, joinedAt: '2026-01-20' },
+        ],
+        goals: [
+          { id: 1, type: 'deals', target: 24, current: 8, period: 'yearly', year: 2026 },
+          { id: 2, type: 'volume', target: 10000000, current: 3200000, period: 'yearly', year: 2026 },
+        ]
+      });
+    }
+    setDataLoaded(true);
   }, []);
-  
-  const loadTeamData = async () => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      
-      // Load team info
-      const teamResponse = await fetchWithAuth(`${apiUrl}/api/teams/my-team`);
-      const teamData = await teamResponse.json();
-      
-      if (teamData.success && teamData.team) {
-        setTeam(teamData.team);
-        setMembers(teamData.members || []);
-        setIsLeader(teamData.is_leader);
-        
-        // Load tasks
-        const tasksResponse = await fetchWithAuth(`${apiUrl}/api/teams/tasks/my-tasks`);
-        const tasksData = await tasksResponse.json();
-        if (tasksData.success) {
-          setTasks(tasksData.tasks || []);
-        }
-        
-        // Load performance metrics
-        const perfResponse = await fetchWithAuth(`${apiUrl}/api/team-leads/team-performance`);
-        const perfData = await perfResponse.json();
-        if (perfData.success) {
-          setPerformance(perfData.performance || []);
-        }
-        
-        // Load activity feed
-        const activityResponse = await fetchWithAuth(`${apiUrl}/api/team-leads/team-activity`);
-        const activityData = await activityResponse.json();
-        if (activityData.success) {
-          setActivity(activityData.activity || []);
-        }
-      }
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading team:', error);
-      setLoading(false);
-    }
-  };
-  
-  const handleCreateTeam = async () => {
-    console.log('Creating team...', { teamName, teamDescription });
-    setError('');
+
+  // Save data
+  useEffect(() => {
+    if (!dataLoaded) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(teamData));
+  }, [teamData, dataLoaded]);
+
+  // Sort members by deals (leaderboard)
+  const leaderboard = [...teamData.members].sort((a, b) => b.stats.dealsClosedYTD - a.stats.dealsClosedYTD);
+
+  // Calculate goal progress
+  const getGoalProgress = (goal: Goal) => {
+    const progress = (goal.current / goal.target) * 100;
+    const now = new Date();
+    const yearProgress = (now.getMonth() + 1) / 12 * 100;
+    const isOnTrack = progress >= yearProgress - 10;
     
-    if (!teamName.trim()) {
-      setError('Team name is required');
-      return;
-    }
+    // Calculate required velocity
+    const remaining = goal.target - goal.current;
+    const monthsLeft = 12 - now.getMonth();
+    const requiredPerMonth = remaining / monthsLeft;
+    const requiredPerWeek = requiredPerMonth / 4;
+
+    return { progress, isOnTrack, remaining, requiredPerMonth, requiredPerWeek };
+  };
+
+  // Add goal
+  const addGoal = () => {
+    if (!goalForm.target) return;
     
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      console.log('API URL:', apiUrl);
-      
-      const response = await fetchWithAuth(`${apiUrl}/api/teams/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: teamName,
-          description: teamDescription
-        })
-      });
-      
-      console.log('Response status:', response.status);
-      const data = await response.json();
-      console.log('Response data:', data);
-      
-      if (data.success) {
-        setShowCreateTeam(false);
-        setTeamName('');
-        setTeamDescription('');
-        loadTeamData();
-      } else {
-        setError(data.detail || 'Failed to create team');
-      }
-    } catch (error: any) {
-      console.error('Error creating team:', error);
-      setError(error.message || 'Network error. Please try again.');
-    }
+    const newGoal: Goal = {
+      id: Date.now(),
+      type: goalForm.type,
+      target: parseFloat(goalForm.target),
+      current: 0,
+      period: goalForm.period,
+      year: 2026
+    };
+
+    setTeamData({ ...teamData, goals: [...teamData.goals, newGoal] });
+    setGoalForm({ type: 'deals', target: '', period: 'yearly' });
+    setShowGoalModal(false);
   };
-  
-  const handleInviteMember = async () => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetchWithAuth(`${apiUrl}/api/teams/invite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: inviteEmail,
-          team_id: team.id
-        })
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setShowInviteMember(false);
-        setInviteEmail('');
-        loadTeamData();
-      }
-    } catch (error) {
-      console.error('Error inviting member:', error);
-    }
+
+  // Copy join code
+  const copyJoinCode = () => {
+    navigator.clipboard.writeText(teamData.joinCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
-  
-  const handleCreateTask = async () => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetchWithAuth(`${apiUrl}/api/teams/tasks/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: taskTitle,
-          description: taskDescription,
-          task_type: taskType,
-          share_with_team: true
-        })
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setShowCreateTask(false);
-        setTaskTitle('');
-        setTaskDescription('');
-        loadTeamData();
-      }
-    } catch (error) {
-      console.error('Error creating task:', error);
-    }
+
+  // Format currency
+  const formatCurrency = (value: number) => {
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+    return `$${value}`;
   };
-  
-  const handleUpdateTaskStatus = async (assignmentId: number, newStatus: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      await fetchWithAuth(`${apiUrl}/api/teams/tasks/update-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignment_id: assignmentId,
-          status: newStatus
-        })
-      });
-      
-      loadTeamData();
-    } catch (error) {
-      console.error('Error updating task:', error);
-    }
+
+  // Get rank medal
+  const getRankMedal = (index: number) => {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return `#${index + 1}`;
   };
-  
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-600 bg-green-50';
-      case 'accepted': return 'text-blue-600 bg-blue-50';
-      case 'declined': return 'text-red-600 bg-red-50';
-      default: return 'text-yellow-600 bg-yellow-50';
-    }
-  };
-  
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircleIcon className="w-5 h-5" />;
-      case 'declined': return <XCircleIcon className="w-5 h-5" />;
-      default: return <ClockIcon className="w-5 h-5" />;
-    }
-  };
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading team...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // No team - show create team option
-  if (!team) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
-            <UserGroupIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Create Your Team
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Start collaborating with your team members
-            </p>
-            <button
-              onClick={() => setShowCreateTeam(true)}
-              className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-            >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Create Team
-            </button>
-          </div>
-          
-          {/* Create Team Modal */}
-          {showCreateTeam && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-                <h3 className="text-xl font-bold mb-4">Create Team</h3>
-                
-                {error && (
-                  <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-                    {error}
-                  </div>
-                )}
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Team Name</label>
-                    <input
-                      type="text"
-                      value={teamName}
-                      onChange={(e) => setTeamName(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="My Real Estate Team"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Description (Optional)</label>
-                    <textarea
-                      value={teamDescription}
-                      onChange={(e) => setTeamDescription(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      rows={3}
-                      placeholder="What's your team about?"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCreateTeam}
-                      className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                    >
-                      Create
-                    </button>
-                    <button
-                      onClick={() => setShowCreateTeam(false)}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-  
-  // Has team - show team dashboard
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <BackButton />
+    <div className="p-6 md:p-8">
+      <div className="mb-6">
+        <BackButton />
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <div className="flex items-center mb-2">
+            <UserGroupIcon className="w-8 h-8 text-indigo-600 mr-3" />
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {teamData.teamName}
+            </h1>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">
+            {teamData.members.length} team members
+          </p>
         </div>
-        
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {team.name}
-          </h1>
-          {team.description && (
-            <p className="text-gray-600 dark:text-gray-400">{team.description}</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={copyJoinCode}
+            className={`px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors ${
+              copiedCode 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
+            }`}
+          >
+            <ClipboardDocumentIcon className="w-5 h-5" />
+            {copiedCode ? 'Copied!' : `Code: ${teamData.joinCode}`}
+          </button>
+          <button
+            onClick={() => setShowGoalModal(true)}
+            className="px-4 py-2 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors flex items-center gap-2"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Set Goal
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+        {[
+          { id: 'leaderboard', label: 'Leaderboard', icon: TrophyIcon },
+          { id: 'goals', label: 'Goals', icon: ChartBarIcon },
+          { id: 'members', label: 'Members', icon: UserGroupIcon },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
+              activeTab === tab.id
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Leaderboard Tab */}
+      {activeTab === 'leaderboard' && (
+        <div className="space-y-6">
+          {/* Top 3 Podium */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            {leaderboard.slice(0, 3).map((member, index) => (
+              <div
+                key={member.id}
+                className={`glass dark:glass-dark rounded-2xl p-6 border border-white/30 dark:border-white/10 text-center ${
+                  index === 0 ? 'ring-2 ring-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/20' : ''
+                }`}
+              >
+                <div className="text-4xl mb-2">{getRankMedal(index)}</div>
+                <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
+                  {member.name.charAt(0)}
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">{member.name}</h3>
+                <p className="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">
+                  {member.stats.dealsClosedYTD}
+                </p>
+                <p className="text-sm text-gray-500">deals closed</p>
+                <p className="text-sm text-green-600 mt-1">
+                  {formatCurrency(member.stats.volumeYTD)} volume
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Full Rankings */}
+          <div className="glass dark:glass-dark rounded-2xl border border-white/30 dark:border-white/10 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rank</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Agent</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Deals (YTD)</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">This Month</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Leads Added</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Volume</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {leaderboard.map((member, index) => (
+                  <tr key={member.id} className={index === 0 ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}>
+                    <td className="px-6 py-4 text-2xl">{getRankMedal(index)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-semibold">
+                          {member.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">{member.name}</p>
+                          <p className="text-xs text-gray-500">{member.role === 'leader' ? '👑 Team Lead' : 'Agent'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center font-bold text-gray-900 dark:text-white">
+                      {member.stats.dealsClosedYTD}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-sm ${
+                        member.stats.dealsClosedMonth >= 2 
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {member.stats.dealsClosedMonth}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400">
+                      {member.stats.leadsAdded}
+                    </td>
+                    <td className="px-6 py-4 text-right font-medium text-green-600">
+                      {formatCurrency(member.stats.volumeYTD)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Goals Tab */}
+      {activeTab === 'goals' && (
+        <div className="space-y-6">
+          {teamData.goals.length === 0 ? (
+            <div className="glass dark:glass-dark rounded-2xl p-12 text-center border border-white/30 dark:border-white/10">
+              <ChartBarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                No Goals Set
+              </h3>
+              <p className="text-gray-500 mb-6">
+                Set your first goal to track your progress
+              </p>
+              <button
+                onClick={() => setShowGoalModal(true)}
+                className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors"
+              >
+                Set a Goal
+              </button>
+            </div>
+          ) : (
+            teamData.goals.map((goal) => {
+              const { progress, isOnTrack, remaining, requiredPerMonth, requiredPerWeek } = getGoalProgress(goal);
+              const goalLabel = goal.type === 'deals' ? 'Deals' : goal.type === 'volume' ? 'Volume' : 'Leads';
+              
+              return (
+                <div key={goal.id} className="glass dark:glass-dark rounded-2xl p-6 border border-white/30 dark:border-white/10">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        {goal.type === 'deals' && <TrophyIcon className="w-6 h-6 text-yellow-500" />}
+                        {goal.type === 'volume' && <CurrencyDollarIcon className="w-6 h-6 text-green-500" />}
+                        {goal.type === 'leads' && <UserPlusIcon className="w-6 h-6 text-blue-500" />}
+                        {goal.target} {goalLabel} Goal
+                      </h3>
+                      <p className="text-sm text-gray-500">{goal.year} {goal.period}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      isOnTrack 
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                    }`}>
+                      {isOnTrack ? '✓ On Track' : '⚠ Behind'}
+                    </span>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {goal.type === 'volume' ? formatCurrency(goal.current) : goal.current} of {goal.type === 'volume' ? formatCurrency(goal.target) : goal.target}
+                      </span>
+                      <span className="font-medium text-gray-900 dark:text-white">{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all ${isOnTrack ? 'bg-green-500' : 'bg-yellow-500'}`}
+                        style={{ width: `${Math.min(100, progress)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Velocity Required */}
+                  <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {goal.type === 'volume' ? formatCurrency(remaining) : remaining}
+                      </p>
+                      <p className="text-xs text-gray-500">remaining</p>
+                    </div>
+                    <div className="text-center border-x border-gray-200 dark:border-gray-600">
+                      <p className="text-2xl font-bold text-primary-600">
+                        {goal.type === 'volume' ? formatCurrency(requiredPerMonth) : requiredPerMonth.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-500">per month needed</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-orange-500">
+                        {goal.type === 'volume' ? formatCurrency(requiredPerWeek) : requiredPerWeek.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-500">per week needed</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
-        
-        {/* Performance Dashboard */}
-        {isLeader && performance.length > 0 && (
-          <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold mb-4">Team Performance</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Member</th>
-                    <th className="text-center py-2">Leads</th>
-                    <th className="text-center py-2">Completed</th>
-                    <th className="text-center py-2">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {performance.map((member) => (
-                    <tr key={member.user_id} className="border-b">
-                      <td className="py-3">
-                        <div>
-                          <p className="font-medium">{member.name}</p>
-                          {member.is_leader && (
-                            <span className="text-xs text-primary-600">Leader</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="text-center">{member.assigned_leads}</td>
-                      <td className="text-center text-green-600">{member.completed_tasks}</td>
-                      <td className="text-center text-yellow-600">{member.pending_tasks}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        
-        {/* Activity Feed */}
-        {activity.length > 0 && (
-          <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold mb-4">Recent Activity</h2>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {activity.map((item, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="w-2 h-2 mt-2 rounded-full bg-primary-600"></div>
-                  <div className="flex-1">
-                    <p className="text-sm">{item.message}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(item.timestamp).toLocaleString()}
-                    </p>
-                  </div>
+      )}
+
+      {/* Members Tab */}
+      {activeTab === 'members' && (
+        <div className="space-y-4">
+          {teamData.members.map((member) => (
+            <div key={member.id} className="glass dark:glass-dark rounded-xl p-5 border border-white/30 dark:border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                  {member.name.charAt(0)}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Team Members */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Team Members</h2>
-                {isLeader && (
-                  <button
-                    onClick={() => setShowInviteMember(true)}
-                    className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg"
-                  >
-                    <PlusIcon className="w-5 h-5" />
-                  </button>
-                )}
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    {member.name}
+                    {member.role === 'leader' && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Team Lead</span>}
+                  </p>
+                  <p className="text-sm text-gray-500">{member.email}</p>
+                </div>
               </div>
-              
-              <div className="space-y-3">
-                {members.map(member => (
-                  <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold">
-                      {member.full_name?.[0] || member.email[0].toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{member.full_name || member.email}</p>
-                      {member.is_team_leader && (
-                        <span className="text-xs text-primary-600">Team Leader</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center gap-6 text-sm">
+                <div className="text-center">
+                  <p className="font-bold text-gray-900 dark:text-white">{member.stats.dealsClosedYTD}</p>
+                  <p className="text-gray-500">deals</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-bold text-green-600">{formatCurrency(member.stats.volumeYTD)}</p>
+                  <p className="text-gray-500">volume</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-bold text-blue-600">{formatCurrency(member.stats.activePipeline)}</p>
+                  <p className="text-gray-500">pipeline</p>
+                </div>
               </div>
             </div>
+          ))}
+
+          {/* Invite CTA */}
+          <div className="glass dark:glass-dark rounded-xl p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 text-center">
+            <UserPlusIcon className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600 dark:text-gray-400 mb-2">Invite team members with code:</p>
+            <code className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-lg font-mono">
+              {teamData.joinCode}
+            </code>
           </div>
-          
-          {/* Tasks */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">My Tasks</h2>
-                {isLeader && (
-                  <button
-                    onClick={() => setShowCreateTask(true)}
-                    className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                  >
-                    <PlusIcon className="w-5 h-5 mr-2" />
-                    Create Task
-                  </button>
-                )}
-              </div>
-              
-              {tasks.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No tasks assigned yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {tasks.map(task => (
-                    <div key={task.assignment_id} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg">{task.task.title}</h3>
-                          {task.task.description && (
-                            <p className="text-gray-600 text-sm mt-1">{task.task.description}</p>
-                          )}
-                        </div>
-                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm ${getStatusColor(task.status || 'pending')}`}>
-                          {getStatusIcon(task.status || 'pending')}
-                          {task.status || 'pending'}
-                        </span>
-                      </div>
-                      
-                      {task.status === 'pending' && (
-                        <div className="flex gap-2 mt-3">
-                          <button
-                            onClick={() => handleUpdateTaskStatus(task.assignment_id!, 'accepted')}
-                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => handleUpdateTaskStatus(task.assignment_id!, 'declined')}
-                            className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      )}
-                      
-                      {task.status === 'accepted' && (
-                        <button
-                          onClick={() => handleUpdateTaskStatus(task.assignment_id!, 'completed')}
-                          className="w-full mt-3 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
-                        >
-                          Mark Complete
-                        </button>
-                      )}
-                    </div>
+        </div>
+      )}
+
+      {/* Goal Modal */}
+      {showGoalModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+              Set a Goal
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Goal Type
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'deals', label: 'Deals', icon: TrophyIcon },
+                    { id: 'volume', label: 'Volume', icon: CurrencyDollarIcon },
+                    { id: 'leads', label: 'Leads', icon: UserPlusIcon },
+                  ].map((type) => (
+                    <button
+                      key={type.id}
+                      onClick={() => setGoalForm({ ...goalForm, type: type.id as Goal['type'] })}
+                      className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-colors ${
+                        goalForm.type === type.id
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      <type.icon className="w-6 h-6" />
+                      <span className="text-sm">{type.label}</span>
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Target
+                </label>
+                <input
+                  type="number"
+                  placeholder={goalForm.type === 'volume' ? '10000000' : '24'}
+                  value={goalForm.target}
+                  onChange={(e) => setGoalForm({ ...goalForm, target: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {goalForm.type === 'volume' ? 'Enter dollar amount (e.g., 10000000 for $10M)' : 'Number of ' + goalForm.type}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Period
+                </label>
+                <select
+                  value={goalForm.period}
+                  onChange={(e) => setGoalForm({ ...goalForm, period: e.target.value as Goal['period'] })}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                >
+                  <option value="yearly">Yearly (2026)</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowGoalModal(false)}
+                className="flex-1 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addGoal}
+                className="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors"
+              >
+                Set Goal
+              </button>
             </div>
           </div>
         </div>
-        
-        {/* Invite Member Modal */}
-        {showInviteMember && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4">Invite Team Member</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Email Address</label>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="member@example.com"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">User must have an account to join</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleInviteMember}
-                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                  >
-                    Invite
-                  </button>
-                  <button
-                    onClick={() => setShowInviteMember(false)}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Create Task Modal */}
-        {showCreateTask && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4">Create Task</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Task Title</label>
-                  <input
-                    type="text"
-                    value={taskTitle}
-                    onChange={(e) => setTaskTitle(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Follow up with lead"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Description</label>
-                  <textarea
-                    value={taskDescription}
-                    onChange={(e) => setTaskDescription(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    rows={3}
-                    placeholder="Task details..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Type</label>
-                  <select
-                    value={taskType}
-                    onChange={(e) => setTaskType(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="optional">Optional</option>
-                    <option value="mandatory">Mandatory</option>
-                  </select>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCreateTask}
-                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                  >
-                    Create
-                  </button>
-                  <button
-                    onClick={() => setShowCreateTask(false)}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

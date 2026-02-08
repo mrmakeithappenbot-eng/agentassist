@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   HomeIcon, 
-  EnvelopeIcon, 
   MagnifyingGlassIcon,
   PhotoIcon,
   Cog6ToothIcon,
@@ -15,7 +14,8 @@ import {
   CurrencyDollarIcon,
   HomeModernIcon,
   BoltIcon,
-  ChartBarIcon
+  UsersIcon,
+  TrophyIcon
 } from '@heroicons/react/24/outline';
 import { logout, getUser } from '@/lib/auth';
 
@@ -25,11 +25,12 @@ const navigation = [
   { name: 'Campaigns', href: '/dashboard/campaigns', icon: BoltIcon },
   { name: 'Calendar', href: '/dashboard/calendar', icon: CalendarIcon },
   { name: 'Open Houses', href: '/dashboard/open-house', icon: HomeModernIcon },
+  { name: 'Team', href: '/dashboard/team', icon: TrophyIcon },
+  { name: 'Vendors', href: '/dashboard/vendors', icon: UsersIcon },
   { name: 'Commission', href: '/dashboard/commission', icon: CurrencyDollarIcon },
   { name: 'Expenses', href: '/dashboard/expenses', icon: CalculatorIcon },
   { name: 'The Hunter', href: '/dashboard/hunter', icon: MagnifyingGlassIcon },
   { name: 'Listing Launchpad', href: '/dashboard/launchpad', icon: PhotoIcon },
-  { name: 'Team', href: '/dashboard/team', icon: UserGroupIcon },
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ];
 
