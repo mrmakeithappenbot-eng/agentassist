@@ -271,6 +271,7 @@ export default function LeadsPage() {
               phone: '',
               status: 'New',
               location: '',
+              address: '',
               price_min: '',
               price_max: '',
               notes: '',
