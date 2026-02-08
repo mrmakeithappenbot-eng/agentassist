@@ -66,11 +66,6 @@ export default function Sidebar() {
             >
               <item.icon className="w-5 h-5 mr-3" />
               {item.name}
-              {item.badge && (
-                <span className="ml-auto bg-danger-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                  3
-                </span>
-              )}
             </Link>
           );
         })}
