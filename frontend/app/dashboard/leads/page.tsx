@@ -339,132 +339,132 @@ export default function LeadsPage() {
                     score >= 80 ? 'ring-2 ring-green-500' : ''
                   }`}
                 >
-              {/* Lead Score Badge */}
-              <div className="flex items-center justify-between mb-3">
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-bold ${getScoreColor(score)}`}>
-                  <FireIcon className="w-4 h-4" />
-                  {score} - {getScoreLabel(score)}
-                </div>
-                {score >= 80 && (
-                  <span className="text-xs text-green-600 font-medium animate-pulse">
-                    🔥 Call Now!
-                  </span>
-                )}
-              </div>
+                  {/* Lead Score Badge */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-bold ${getScoreColor(score)}`}>
+                      <FireIcon className="w-4 h-4" />
+                      {score} - {getScoreLabel(score)}
+                    </div>
+                    {score >= 80 && (
+                      <span className="text-xs text-green-600 font-medium animate-pulse">
+                        🔥 Call Now!
+                      </span>
+                    )}
+                  </div>
 
-              {/* Lead Name */}
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
-                  <UserIcon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    {lead.first_name} {lead.last_name}
-                  </h3>
-                  {lead.status && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {lead.status}
-                    </span>
+                  {/* Lead Name */}
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
+                      <UserIcon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        {lead.first_name} {lead.last_name}
+                      </h3>
+                      {lead.status && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {lead.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="space-y-2 mb-4">
+                    {lead.email && (
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <EnvelopeIcon className="w-4 h-4 mr-2" />
+                        <span className="truncate">{lead.email}</span>
+                      </div>
+                    )}
+                    {lead.phone && (
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <PhoneIcon className="w-4 h-4 mr-2" />
+                        <span>{lead.phone}</span>
+                      </div>
+                    )}
+                    {lead.location && (
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <MapPinIcon className="w-4 h-4 mr-2" />
+                        <span>{lead.location}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Price Range */}
+                  {(lead.price_range_min || lead.price_range_max) && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Budget: ${lead.price_range_min?.toLocaleString() || '?'} - ${lead.price_range_max?.toLocaleString() || '?'}
+                      </p>
+                    </div>
                   )}
-                </div>
-              </div>
 
-              {/* Contact Info */}
-              <div className="space-y-2 mb-4">
-                {lead.email && (
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <EnvelopeIcon className="w-4 h-4 mr-2" />
-                    <span className="truncate">{lead.email}</span>
-                  </div>
-                )}
-                {lead.phone && (
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <PhoneIcon className="w-4 h-4 mr-2" />
-                    <span>{lead.phone}</span>
-                  </div>
-                )}
-                {lead.location && (
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <MapPinIcon className="w-4 h-4 mr-2" />
-                    <span>{lead.location}</span>
-                  </div>
-                )}
-              </div>
+                  {/* Tags */}
+                  {lead.tags && lead.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {lead.tags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        >
+                          <TagIcon className="w-3 h-3 mr-1" />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-              {/* Price Range */}
-              {(lead.price_range_min || lead.price_range_max) && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Budget: ${lead.price_range_min?.toLocaleString() || '?'} - ${lead.price_range_max?.toLocaleString() || '?'}
-                  </p>
-                </div>
-              )}
+                  {/* Quick Contact Buttons */}
+                  <div className="flex gap-2 mb-3">
+                    {lead.phone && (
+                      <button
+                        onClick={() => setShowMessageModal({ lead, type: 'sms' })}
+                        className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        title="Send SMS"
+                      >
+                        <DevicePhoneMobileIcon className="w-4 h-4 mr-1" />
+                        Text
+                      </button>
+                    )}
+                    {lead.email && (
+                      <button
+                        onClick={() => setShowMessageModal({ lead, type: 'email' })}
+                        className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        title="Send Email"
+                      >
+                        <EnvelopeIcon className="w-4 h-4 mr-1" />
+                        Email
+                      </button>
+                    )}
+                  </div>
 
-              {/* Tags */}
-              {lead.tags && lead.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {lead.tags.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                      className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                      title="View details and activities"
                     >
-                      <TagIcon className="w-3 h-3 mr-1" />
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Quick Contact Buttons */}
-              <div className="flex gap-2 mb-3">
-                {lead.phone && (
-                  <button
-                    onClick={() => setShowMessageModal({ lead, type: 'sms' })}
-                    className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    title="Send SMS"
-                  >
-                    <DevicePhoneMobileIcon className="w-4 h-4 mr-1" />
-                    Text
-                  </button>
-                )}
-                {lead.email && (
-                  <button
-                    onClick={() => setShowMessageModal({ lead, type: 'email' })}
-                    className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    title="Send Email"
-                  >
-                    <EnvelopeIcon className="w-4 h-4 mr-1" />
-                    Email
-                  </button>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                  title="View details and activities"
-                >
-                  <EyeIcon className="w-4 h-4 mr-1" />
-                  View
-                </button>
-                <button
-                  onClick={() => handleEdit(lead)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                  title="Edit lead"
-                >
-                  <PencilIcon className="w-4 h-4 mr-1" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(lead.id)}
-                  className="px-3 py-2 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                  title="Delete lead"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
+                      <EyeIcon className="w-4 h-4 mr-1" />
+                      View
+                    </button>
+                    <button
+                      onClick={() => handleEdit(lead)}
+                      className="flex-1 flex items-center justify-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      title="Edit lead"
+                    >
+                      <PencilIcon className="w-4 h-4 mr-1" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(lead.id)}
+                      className="px-3 py-2 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                      title="Delete lead"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
