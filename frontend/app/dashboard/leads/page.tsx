@@ -333,12 +333,12 @@ export default function LeadsPage() {
             .map((lead) => {
               const score = calculateLeadScore(lead);
               return (
-            <div
-              key={lead.id}
-              className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow ${
-                score >= 80 ? 'ring-2 ring-green-500' : ''
-              }`}
-            >
+                <div
+                  key={lead.id}
+                  className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow ${
+                    score >= 80 ? 'ring-2 ring-green-500' : ''
+                  }`}
+                >
               {/* Lead Score Badge */}
               <div className="flex items-center justify-between mb-3">
                 <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-bold ${getScoreColor(score)}`}>
@@ -465,7 +465,7 @@ export default function LeadsPage() {
                   <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
-            </div>
+                </div>
               );
             })}
         </div>
