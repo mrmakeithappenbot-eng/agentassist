@@ -25,7 +25,8 @@ class Lead(Base):
     tags = Column(JSON, default=[])  # Array of tags
     
     # Location and property preferences
-    location = Column(String, nullable=True)
+    location = Column(String, nullable=True)  # General area (e.g., "Downtown", "Westside")
+    address = Column(String, nullable=True)   # Specific property address
     price_min = Column(Integer, nullable=True)
     price_max = Column(Integer, nullable=True)
     
@@ -60,6 +61,7 @@ class Lead(Base):
             'status': self.status,
             'tags': self.tags or [],
             'location': self.location,
+            'address': self.address,
             'price_range_min': self.price_min,
             'price_range_max': self.price_max,
             'notes': self.notes,

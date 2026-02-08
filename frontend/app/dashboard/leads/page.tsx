@@ -28,6 +28,7 @@ interface Lead {
   status: string | null;
   tags: string[];
   location: string | null;
+  address: string | null;
   price_range_min: number | null;
   price_range_max: number | null;
 }
@@ -79,6 +80,7 @@ export default function LeadsPage() {
     phone: '',
     status: 'New',
     location: '',
+    address: '',
     price_min: '',
     price_max: '',
     notes: '',
@@ -114,6 +116,7 @@ export default function LeadsPage() {
       phone: lead.phone || '',
       status: lead.status || 'New',
       location: lead.location || '',
+      address: lead.address || '',
       price_min: lead.price_range_min ? String(lead.price_range_min) : '',
       price_max: lead.price_range_max ? String(lead.price_range_max) : '',
       notes: '',
@@ -185,6 +188,7 @@ export default function LeadsPage() {
           phone: '',
           status: 'New',
           location: '',
+          address: '',
           price_min: '',
           price_max: '',
           notes: '',
@@ -353,6 +357,12 @@ export default function LeadsPage() {
                     <span>{lead.location}</span>
                   </div>
                 )}
+                {lead.address && (
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    <MapPinIcon className="w-4 h-4 mr-2 text-primary-500" />
+                    <span className="text-gray-700 dark:text-gray-300">{lead.address}</span>
+                  </div>
+                )}
               </div>
 
               {/* Price Range */}
@@ -517,6 +527,20 @@ export default function LeadsPage() {
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
+              </div>
+
+              {/* Property Address */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Property Address
+                </label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  placeholder="123 Main St, Portland, OR 97201"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
               </div>
 
               {/* Price Range */}

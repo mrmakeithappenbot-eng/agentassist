@@ -22,6 +22,7 @@ class LeadCreate(BaseModel):
     status: Optional[str] = "New"
     tags: List[str] = []
     location: Optional[str] = None
+    address: Optional[str] = None
     price_min: Optional[int] = None
     price_max: Optional[int] = None
     notes: Optional[str] = None
@@ -34,6 +35,7 @@ class LeadUpdate(BaseModel):
     status: Optional[str] = None
     tags: Optional[List[str]] = None
     location: Optional[str] = None
+    address: Optional[str] = None
     price_min: Optional[int] = None
     price_max: Optional[int] = None
     notes: Optional[str] = None
@@ -47,6 +49,7 @@ class LeadResponse(BaseModel):
     status: Optional[str]
     tags: List[str] = []
     location: Optional[str]
+    address: Optional[str]
     price_range_min: Optional[int]
     price_range_max: Optional[int]
 
@@ -72,6 +75,7 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
             status=lead.status or 'New',
             tags=lead.tags or [],
             location=lead.location,
+            address=lead.address,
             price_min=lead.price_min,
             price_max=lead.price_max,
             notes=lead.notes,
@@ -93,6 +97,7 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
                 status=db_lead.status,
                 tags=db_lead.tags or [],
                 location=db_lead.location,
+                address=db_lead.address,
                 price_range_min=db_lead.price_min,
                 price_range_max=db_lead.price_max
             )
@@ -166,6 +171,8 @@ async def update_lead(lead_id: int, lead_update: LeadUpdate, db: Session = Depen
             db_lead.tags = lead_update.tags
         if lead_update.location is not None:
             db_lead.location = lead_update.location
+        if lead_update.address is not None:
+            db_lead.address = lead_update.address
         if lead_update.price_min is not None:
             db_lead.price_min = lead_update.price_min
         if lead_update.price_max is not None:
@@ -188,6 +195,7 @@ async def update_lead(lead_id: int, lead_update: LeadUpdate, db: Session = Depen
                 status=db_lead.status,
                 tags=db_lead.tags or [],
                 location=db_lead.location,
+                address=db_lead.address,
                 price_range_min=db_lead.price_min,
                 price_range_max=db_lead.price_max
             )
