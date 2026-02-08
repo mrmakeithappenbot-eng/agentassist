@@ -7,18 +7,32 @@ import {
   MapPinIcon,
   PlusIcon,
   XMarkIcon,
+  ArrowTrendingUpIcon,
+  CurrencyDollarIcon,
+  CheckCircleIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
 const STAGES = [
-  { id: 'new', name: 'New', color: '#6b7280' },
-  { id: 'contacted', name: 'Contacted', color: '#3b82f6' },
-  { id: 'qualified', name: 'Qualified', color: '#6366f1' },
-  { id: 'showing', name: 'Showing', color: '#8b5cf6' },
-  { id: 'under_contract', name: 'Under Contract', color: '#a855f7' },
-  { id: 'closing', name: 'Closing', color: '#d946ef' },
-  { id: 'closed_won', name: 'Closed', color: '#10b981' },
+  { id: 'new', name: 'New', color: 'gray' },
+  { id: 'contacted', name: 'Contacted', color: 'blue' },
+  { id: 'qualified', name: 'Qualified', color: 'indigo' },
+  { id: 'showing', name: 'Showing', color: 'purple' },
+  { id: 'under_contract', name: 'Under Contract', color: 'violet' },
+  { id: 'closing', name: 'Closing', color: 'fuchsia' },
+  { id: 'closed_won', name: 'Closed', color: 'green' },
 ];
+
+const stageColors: Record<string, string> = {
+  gray: 'border-t-gray-500',
+  blue: 'border-t-blue-500',
+  indigo: 'border-t-indigo-500',
+  purple: 'border-t-purple-500',
+  violet: 'border-t-violet-500',
+  fuchsia: 'border-t-fuchsia-500',
+  green: 'border-t-green-500',
+};
 
 interface PipelineLead {
   id: string;
@@ -234,44 +248,53 @@ export default function PipelinePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <BackButton />
-        <div>
-          <h1 className="text-2xl font-bold text-white">Pipeline</h1>
-          <p className="text-sm text-gray-400">Track deals from lead to close</p>
+    <div className="p-6 md:p-8">
+      {/* Page Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-2">
+          <BackButton />
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Pipeline</h1>
         </div>
+        <p className="text-gray-600 dark:text-gray-400">
+          Track your deals from first contact to close
+        </p>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <p className="text-xs text-gray-400 font-medium">Total Leads</p>
-          <p className="text-3xl font-bold text-white mt-1">{totalLeads}</p>
-        </div>
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <p className="text-xs text-gray-400 font-medium">Pipeline Value</p>
-          <p className="text-3xl font-bold text-blue-400 mt-1">{formatCurrency(pipelineValue)}</p>
-        </div>
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <p className="text-xs text-gray-400 font-medium">Closed Won</p>
-          <p className="text-3xl font-bold text-emerald-400 mt-1">{closedWon}</p>
-        </div>
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <p className="text-xs text-gray-400 font-medium">Closed Value</p>
-          <p className="text-3xl font-bold text-emerald-400 mt-1">{formatCurrency(closedValue)}</p>
-        </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard 
+          title="Total Leads"
+          value={totalLeads.toString()}
+          icon={UserGroupIcon}
+        />
+        <StatCard 
+          title="Pipeline Value"
+          value={formatCurrency(pipelineValue)}
+          icon={CurrencyDollarIcon}
+          positive
+        />
+        <StatCard 
+          title="Closed Won"
+          value={closedWon.toString()}
+          icon={CheckCircleIcon}
+          positive
+        />
+        <StatCard 
+          title="Closed Value"
+          value={formatCurrency(closedValue)}
+          icon={ArrowTrendingUpIcon}
+          positive
+        />
       </div>
 
       {/* Kanban Board */}
-      <div className="overflow-x-auto -mx-4 px-4 pb-4">
+      <div className="overflow-x-auto -mx-6 px-6 pb-4">
         <div className="flex gap-4 min-w-max">
           {STAGES.map(stage => {
             const stageLeads = getLeadsForStage(stage.id);
@@ -281,27 +304,25 @@ export default function PipelinePage() {
             return (
               <div
                 key={stage.id}
-                className={`w-72 flex-shrink-0 rounded-xl transition-all duration-150
-                  ${isDropTarget 
-                    ? 'bg-gray-700 ring-2 ring-blue-500' 
-                    : 'bg-gray-800/50'}`}
+                className={`w-72 flex-shrink-0 glass dark:glass-dark rounded-2xl shadow-lg smooth-transition
+                  border-t-4 ${stageColors[stage.color]}
+                  ${isDropTarget ? 'scale-[1.02] shadow-xl ring-2 ring-primary-500' : ''}`}
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, stage.id)}
               >
                 {/* Column Header */}
-                <div 
-                  className="px-4 py-3 border-b border-gray-700 rounded-t-xl"
-                  style={{ borderTop: `3px solid ${stage.color}` }}
-                >
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-white">{stage.name}</h3>
-                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full font-medium">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{stage.name}</h3>
+                    <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full font-medium">
                       {stageLeads.length}
                     </span>
                   </div>
                   {stageValue > 0 && (
-                    <p className="text-xs text-emerald-400 mt-1 font-medium">{formatCurrency(stageValue)}</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
+                      {formatCurrency(stageValue)}
+                    </p>
                   )}
                 </div>
 
@@ -319,71 +340,69 @@ export default function PipelinePage() {
                         onDragStart={(e) => handleDragStart(e, lead.id)}
                         onDragEnd={handleDragEnd}
                         onClick={() => openEditModal(lead)}
-                        className={`bg-gray-900 rounded-lg p-4 cursor-grab active:cursor-grabbing
-                          border border-gray-700 hover:border-gray-600
-                          transition-all duration-150 hover:bg-gray-850
-                          ${isDragging ? 'opacity-40 scale-95' : 'hover:-translate-y-0.5 hover:shadow-lg'}`}
+                        className={`bg-white dark:bg-gray-800 rounded-xl p-4 cursor-grab active:cursor-grabbing
+                          border border-gray-200 dark:border-gray-700 
+                          smooth-transition hover:shadow-lg hover:scale-[1.02]
+                          ${isDragging ? 'opacity-50 scale-95' : ''}`}
                       >
                         {/* Header Row */}
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            {/* Priority Dot */}
                             <div className={`w-2 h-2 rounded-full flex-shrink-0
                               ${lead.priority === 'hot' ? 'bg-red-500' : 
-                                lead.priority === 'warm' ? 'bg-yellow-500' : 'bg-gray-500'}`} 
+                                lead.priority === 'warm' ? 'bg-yellow-500' : 'bg-gray-400'}`} 
                             />
-                            <p className="font-semibold text-white text-sm truncate">{lead.name}</p>
+                            <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">
+                              {lead.name}
+                            </p>
                           </div>
-                          {/* Type Badge */}
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0 uppercase
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 uppercase
                             ${lead.lead_type === 'buyer' 
-                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
                               : lead.lead_type === 'seller'
-                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                              : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'}`}>
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'}`}>
                             {lead.lead_type === 'buyer' ? 'Buy' : lead.lead_type === 'seller' ? 'Sell' : 'Both'}
                           </span>
                         </div>
 
                         {/* Property Address */}
                         {lead.property_address && (
-                          <div className="flex items-center gap-1.5 text-gray-400 mb-3">
+                          <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-3">
                             <MapPinIcon className="w-3.5 h-3.5 flex-shrink-0" />
                             <p className="text-xs truncate">{lead.property_address}</p>
                           </div>
                         )}
 
                         {/* Footer Row */}
-                        <div className="flex items-center justify-between pt-3 border-t border-gray-800">
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
                           <div className="flex items-center gap-3">
                             {lead.deal_value ? (
-                              <span className="text-sm font-bold text-emerald-400">
+                              <span className="text-sm font-bold text-green-600 dark:text-green-400">
                                 {formatCurrency(lead.deal_value)}
                               </span>
                             ) : (
-                              <span className="text-xs text-gray-500">No value</span>
+                              <span className="text-xs text-gray-400">No value</span>
                             )}
                           </div>
                           
                           <div className="flex items-center gap-2">
-                            {/* Quick Actions */}
                             {lead.phone && (
                               <a href={`tel:${lead.phone}`} onClick={(e) => e.stopPropagation()}
-                                className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors">
-                                <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
+                                className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 smooth-transition">
+                                <PhoneIcon className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
                               </a>
                             )}
                             {lead.email && (
                               <a href={`mailto:${lead.email}`} onClick={(e) => e.stopPropagation()}
-                                className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors">
-                                <EnvelopeIcon className="w-3.5 h-3.5 text-gray-400" />
+                                className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 smooth-transition">
+                                <EnvelopeIcon className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
                               </a>
                             )}
-                            {/* Days Badge */}
                             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded
                               ${isStale 
-                                ? 'bg-red-500/20 text-red-400' 
-                                : 'bg-gray-800 text-gray-500'}`}>
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                                : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
                               {daysInStage}d
                             </span>
                           </div>
@@ -393,7 +412,8 @@ export default function PipelinePage() {
                   })}
 
                   {stageLeads.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-32 text-gray-500 border-2 border-dashed border-gray-700 rounded-lg">
+                    <div className="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-500 
+                      border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                       <p className="text-sm">Drop leads here</p>
                     </div>
                   )}
@@ -407,10 +427,9 @@ export default function PipelinePage() {
       {/* Floating Add Button */}
       <button
         onClick={openAddModal}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 
-          rounded-full shadow-lg shadow-blue-600/30
-          flex items-center justify-center transition-all duration-150
-          hover:scale-105 active:scale-95"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-primary-600 hover:bg-primary-700 
+          rounded-full shadow-lg flex items-center justify-center smooth-transition
+          hover:scale-110 hover:shadow-xl"
       >
         <PlusIcon className="w-6 h-6 text-white" />
       </button>
@@ -418,77 +437,74 @@ export default function PipelinePage() {
       {/* Modal */}
       {showModal && (
         <div 
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowModal(false)}
         >
           <div 
-            className="bg-gray-900 rounded-xl w-full max-w-md border border-gray-700 shadow-2xl"
+            className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
-              <h2 className="text-lg font-bold text-white">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                 {editingLead ? 'Edit Lead' : 'New Lead'}
               </h2>
               <button onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors">
-                <XMarkIcon className="w-5 h-5 text-gray-400" />
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition">
+                <XMarkIcon className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="px-5 py-4 space-y-4">
-              {/* Name */}
+            <div className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Name *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Name *</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
-                    text-white placeholder-gray-500
-                    focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                    text-gray-900 dark:text-white placeholder-gray-400
+                    focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                   placeholder="John Smith"
                   autoFocus
                 />
               </div>
 
-              {/* Contact Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone</label>
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData(f => ({ ...f, phone: e.target.value }))}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
-                      text-white placeholder-gray-500
-                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                      text-gray-900 dark:text-white placeholder-gray-400
+                      focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                     placeholder="(555) 123-4567"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData(f => ({ ...f, email: e.target.value }))}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
-                      text-white placeholder-gray-500
-                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                      text-gray-900 dark:text-white placeholder-gray-400
+                      focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                     placeholder="john@email.com"
                   />
                 </div>
               </div>
 
-              {/* Stage */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Stage</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Stage</label>
                 <select
                   value={formData.stage}
                   onChange={(e) => setFormData(f => ({ ...f, stage: e.target.value }))}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
-                    text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                    text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                 >
                   {STAGES.map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
@@ -496,46 +512,43 @@ export default function PipelinePage() {
                 </select>
               </div>
 
-              {/* Deal Value */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Deal Value</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Deal Value</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
                   <input
                     type="number"
                     value={formData.deal_value}
                     onChange={(e) => setFormData(f => ({ ...f, deal_value: e.target.value }))}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg pl-8 pr-4 py-2.5 
-                      text-white placeholder-gray-500
-                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl pl-8 pr-4 py-2.5 
+                      text-gray-900 dark:text-white placeholder-gray-400
+                      focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                     placeholder="350,000"
                   />
                 </div>
               </div>
 
-              {/* Property Address */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Property Address</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Property Address</label>
                 <input
                   type="text"
                   value={formData.property_address}
                   onChange={(e) => setFormData(f => ({ ...f, property_address: e.target.value }))}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
-                    text-white placeholder-gray-500
-                    focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                    text-gray-900 dark:text-white placeholder-gray-400
+                    focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                   placeholder="123 Main St, Austin, TX"
                 />
               </div>
 
-              {/* Type & Priority */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Type</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Type</label>
                   <select
                     value={formData.lead_type}
                     onChange={(e) => setFormData(f => ({ ...f, lead_type: e.target.value as any }))}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
-                      text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                      text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                   >
                     <option value="buyer">Buyer</option>
                     <option value="seller">Seller</option>
@@ -543,12 +556,12 @@ export default function PipelinePage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Priority</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Priority</label>
                   <select
                     value={formData.priority}
                     onChange={(e) => setFormData(f => ({ ...f, priority: e.target.value as any }))}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
-                      text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                      text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none smooth-transition"
                   >
                     <option value="hot">Hot</option>
                     <option value="warm">Warm</option>
@@ -559,25 +572,25 @@ export default function PipelinePage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between px-5 py-4 border-t border-gray-700 bg-gray-800/50 rounded-b-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
               <div>
                 {editingLead && (
                   <button onClick={handleDelete}
-                    className="text-sm text-red-400 hover:text-red-300 font-medium">
+                    className="text-sm text-red-600 hover:text-red-700 font-medium">
                     Delete Lead
                   </button>
                 )}
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm text-gray-300 hover:text-white font-medium">
+                  className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium smooth-transition">
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={!formData.name.trim()}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg 
-                    text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl 
+                    text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed smooth-transition">
                   {editingLead ? 'Save Changes' : 'Add Lead'}
                 </button>
               </div>
@@ -585,6 +598,20 @@ export default function PipelinePage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatCard({ title, value, icon: Icon, positive }: { title: string; value: string; icon: any; positive?: boolean }) {
+  return (
+    <div className="glass dark:glass-dark p-6 rounded-2xl shadow-lg border border-white/30 dark:border-white/10 smooth-transition hover:shadow-xl hover:scale-105">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+        <Icon className="w-5 h-5 text-primary-500" />
+      </div>
+      <p className={`text-3xl font-bold ${positive ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
+        {value}
+      </p>
     </div>
   );
 }
