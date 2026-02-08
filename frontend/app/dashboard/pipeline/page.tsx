@@ -10,15 +10,14 @@ import {
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
-// Pipeline stages - clean, no emojis
 const STAGES = [
-  { id: 'new', name: 'New', accent: 'bg-gray-400' },
-  { id: 'contacted', name: 'Contacted', accent: 'bg-blue-400' },
-  { id: 'qualified', name: 'Qualified', accent: 'bg-indigo-400' },
-  { id: 'showing', name: 'Showing', accent: 'bg-violet-400' },
-  { id: 'under_contract', name: 'Under Contract', accent: 'bg-purple-400' },
-  { id: 'closing', name: 'Closing', accent: 'bg-fuchsia-400' },
-  { id: 'closed_won', name: 'Closed', accent: 'bg-emerald-400' },
+  { id: 'new', name: 'New', color: '#6b7280' },
+  { id: 'contacted', name: 'Contacted', color: '#3b82f6' },
+  { id: 'qualified', name: 'Qualified', color: '#6366f1' },
+  { id: 'showing', name: 'Showing', color: '#8b5cf6' },
+  { id: 'under_contract', name: 'Under Contract', color: '#a855f7' },
+  { id: 'closing', name: 'Closing', color: '#d946ef' },
+  { id: 'closed_won', name: 'Closed', color: '#10b981' },
 ];
 
 interface PipelineLead {
@@ -159,7 +158,6 @@ export default function PipelinePage() {
     }));
   };
 
-  // Stats
   const totalLeads = leads.length;
   const pipelineValue = leads.filter(l => l.stage !== 'closed_won').reduce((sum, l) => sum + (l.deal_value || 0), 0);
   const closedWon = leads.filter(l => l.stage === 'closed_won').length;
@@ -177,14 +175,10 @@ export default function PipelinePage() {
   const openEditModal = (lead: PipelineLead) => {
     setEditingLead(lead);
     setFormData({
-      name: lead.name,
-      email: lead.email || '',
-      phone: lead.phone || '',
-      stage: lead.stage,
-      deal_value: lead.deal_value?.toString() || '',
+      name: lead.name, email: lead.email || '', phone: lead.phone || '',
+      stage: lead.stage, deal_value: lead.deal_value?.toString() || '',
       property_address: lead.property_address || '',
-      lead_type: lead.lead_type,
-      priority: lead.priority,
+      lead_type: lead.lead_type, priority: lead.priority,
     });
     setShowModal(true);
   };
@@ -240,40 +234,45 @@ export default function PipelinePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <BackButton />
         <div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Pipeline</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Track deals from lead to close</p>
+          <h1 className="text-2xl font-bold text-white">Pipeline</h1>
+          <p className="text-sm text-gray-400">Track deals from lead to close</p>
         </div>
       </div>
 
-      {/* Stats - Apple-style cards */}
+      {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Leads', value: totalLeads, color: 'text-white' },
-          { label: 'Pipeline Value', value: formatCurrency(pipelineValue), color: 'text-white' },
-          { label: 'Closed Won', value: closedWon, color: 'text-emerald-400' },
-          { label: 'Closed Value', value: formatCurrency(closedValue), color: 'text-emerald-400' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{stat.label}</p>
-            <p className={`text-2xl font-semibold mt-1 ${stat.color}`}>{stat.value}</p>
-          </div>
-        ))}
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p className="text-xs text-gray-400 font-medium">Total Leads</p>
+          <p className="text-3xl font-bold text-white mt-1">{totalLeads}</p>
+        </div>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p className="text-xs text-gray-400 font-medium">Pipeline Value</p>
+          <p className="text-3xl font-bold text-blue-400 mt-1">{formatCurrency(pipelineValue)}</p>
+        </div>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p className="text-xs text-gray-400 font-medium">Closed Won</p>
+          <p className="text-3xl font-bold text-emerald-400 mt-1">{closedWon}</p>
+        </div>
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p className="text-xs text-gray-400 font-medium">Closed Value</p>
+          <p className="text-3xl font-bold text-emerald-400 mt-1">{formatCurrency(closedValue)}</p>
+        </div>
       </div>
 
       {/* Kanban Board */}
       <div className="overflow-x-auto -mx-4 px-4 pb-4">
-        <div className="flex gap-3 min-w-max">
+        <div className="flex gap-4 min-w-max">
           {STAGES.map(stage => {
             const stageLeads = getLeadsForStage(stage.id);
             const stageValue = getStageValue(stage.id);
@@ -282,28 +281,32 @@ export default function PipelinePage() {
             return (
               <div
                 key={stage.id}
-                className={`w-64 flex-shrink-0 rounded-2xl transition-all duration-200
+                className={`w-72 flex-shrink-0 rounded-xl transition-all duration-150
                   ${isDropTarget 
-                    ? 'bg-white/10 ring-2 ring-white/20' 
-                    : 'bg-white/[0.03]'}`}
+                    ? 'bg-gray-700 ring-2 ring-blue-500' 
+                    : 'bg-gray-800/50'}`}
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, stage.id)}
               >
                 {/* Column Header */}
-                <div className="p-4 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${stage.accent}`} />
-                    <h3 className="text-sm font-medium text-gray-300">{stage.name}</h3>
-                    <span className="text-xs text-gray-500 ml-auto">{stageLeads.length}</span>
+                <div 
+                  className="px-4 py-3 border-b border-gray-700 rounded-t-xl"
+                  style={{ borderTop: `3px solid ${stage.color}` }}
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-white">{stage.name}</h3>
+                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full font-medium">
+                      {stageLeads.length}
+                    </span>
                   </div>
                   {stageValue > 0 && (
-                    <p className="text-xs text-gray-500 mt-1 ml-4">{formatCurrency(stageValue)}</p>
+                    <p className="text-xs text-emerald-400 mt-1 font-medium">{formatCurrency(stageValue)}</p>
                   )}
                 </div>
 
-                {/* Cards */}
-                <div className="px-2 pb-2 space-y-2 min-h-[120px] max-h-[60vh] overflow-y-auto">
+                {/* Cards Container */}
+                <div className="p-3 space-y-3 min-h-[150px] max-h-[55vh] overflow-y-auto">
                   {stageLeads.map(lead => {
                     const daysInStage = getDaysInStage(lead);
                     const isStale = daysInStage > 7;
@@ -316,74 +319,82 @@ export default function PipelinePage() {
                         onDragStart={(e) => handleDragStart(e, lead.id)}
                         onDragEnd={handleDragEnd}
                         onClick={() => openEditModal(lead)}
-                        className={`bg-gray-900/80 backdrop-blur-sm rounded-xl p-3.5 
-                          cursor-grab active:cursor-grabbing
-                          border border-white/[0.06] hover:border-white/10
-                          shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30
-                          transition-all duration-200 hover:-translate-y-0.5
-                          ${isDragging ? 'opacity-50 scale-95' : ''}`}
+                        className={`bg-gray-900 rounded-lg p-4 cursor-grab active:cursor-grabbing
+                          border border-gray-700 hover:border-gray-600
+                          transition-all duration-150 hover:bg-gray-850
+                          ${isDragging ? 'opacity-40 scale-95' : 'hover:-translate-y-0.5 hover:shadow-lg'}`}
                       >
-                        {/* Priority indicator - subtle dot */}
-                        <div className="flex items-start justify-between gap-2">
+                        {/* Header Row */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5
-                              ${lead.priority === 'hot' ? 'bg-red-400' : 
-                                lead.priority === 'warm' ? 'bg-amber-400' : 'bg-gray-500'}`} 
+                            {/* Priority Dot */}
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0
+                              ${lead.priority === 'hot' ? 'bg-red-500' : 
+                                lead.priority === 'warm' ? 'bg-yellow-500' : 'bg-gray-500'}`} 
                             />
-                            <p className="font-medium text-white text-sm truncate">{lead.name}</p>
+                            <p className="font-semibold text-white text-sm truncate">{lead.name}</p>
                           </div>
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0
+                          {/* Type Badge */}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0 uppercase
                             ${lead.lead_type === 'buyer' 
-                              ? 'bg-blue-500/15 text-blue-400' 
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
                               : lead.lead_type === 'seller'
-                              ? 'bg-purple-500/15 text-purple-400'
-                              : 'bg-gray-500/15 text-gray-400'}`}>
+                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                              : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'}`}>
                             {lead.lead_type === 'buyer' ? 'Buy' : lead.lead_type === 'seller' ? 'Sell' : 'Both'}
                           </span>
                         </div>
 
                         {/* Property Address */}
                         {lead.property_address && (
-                          <p className="text-xs text-gray-500 mt-2 flex items-center gap-1.5 truncate">
-                            <MapPinIcon className="w-3 h-3 flex-shrink-0" />
-                            {lead.property_address}
-                          </p>
+                          <div className="flex items-center gap-1.5 text-gray-400 mb-3">
+                            <MapPinIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                            <p className="text-xs truncate">{lead.property_address}</p>
+                          </div>
                         )}
 
-                        {/* Bottom row */}
-                        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/5">
+                        {/* Footer Row */}
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-800">
                           <div className="flex items-center gap-3">
-                            {lead.deal_value && (
-                              <span className="text-xs font-medium text-emerald-400">
+                            {lead.deal_value ? (
+                              <span className="text-sm font-bold text-emerald-400">
                                 {formatCurrency(lead.deal_value)}
                               </span>
+                            ) : (
+                              <span className="text-xs text-gray-500">No value</span>
                             )}
-                            <div className="flex items-center gap-1.5">
-                              {lead.phone && (
-                                <a href={`tel:${lead.phone}`} onClick={(e) => e.stopPropagation()}
-                                  className="p-1 rounded-md hover:bg-white/10 transition-colors">
-                                  <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
-                                </a>
-                              )}
-                              {lead.email && (
-                                <a href={`mailto:${lead.email}`} onClick={(e) => e.stopPropagation()}
-                                  className="p-1 rounded-md hover:bg-white/10 transition-colors">
-                                  <EnvelopeIcon className="w-3.5 h-3.5 text-gray-400" />
-                                </a>
-                              )}
-                            </div>
                           </div>
-                          <span className={`text-[10px] ${isStale ? 'text-red-400' : 'text-gray-600'}`}>
-                            {daysInStage}d
-                          </span>
+                          
+                          <div className="flex items-center gap-2">
+                            {/* Quick Actions */}
+                            {lead.phone && (
+                              <a href={`tel:${lead.phone}`} onClick={(e) => e.stopPropagation()}
+                                className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors">
+                                <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
+                              </a>
+                            )}
+                            {lead.email && (
+                              <a href={`mailto:${lead.email}`} onClick={(e) => e.stopPropagation()}
+                                className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors">
+                                <EnvelopeIcon className="w-3.5 h-3.5 text-gray-400" />
+                              </a>
+                            )}
+                            {/* Days Badge */}
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded
+                              ${isStale 
+                                ? 'bg-red-500/20 text-red-400' 
+                                : 'bg-gray-800 text-gray-500'}`}>
+                              {daysInStage}d
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
 
                   {stageLeads.length === 0 && (
-                    <div className="flex items-center justify-center h-24 text-gray-600 text-xs">
-                      Drop here
+                    <div className="flex flex-col items-center justify-center h-32 text-gray-500 border-2 border-dashed border-gray-700 rounded-lg">
+                      <p className="text-sm">Drop leads here</p>
                     </div>
                   )}
                 </div>
@@ -393,79 +404,78 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Floating Add Button - Apple style */}
+      {/* Floating Add Button */}
       <button
         onClick={openAddModal}
-        className="fixed bottom-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/15 
-          backdrop-blur-xl rounded-full shadow-2xl shadow-black/50
-          flex items-center justify-center transition-all duration-200
-          hover:scale-105 active:scale-95 border border-white/10"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 
+          rounded-full shadow-lg shadow-blue-600/30
+          flex items-center justify-center transition-all duration-150
+          hover:scale-105 active:scale-95"
       >
-        <PlusIcon className="w-5 h-5 text-white" />
+        <PlusIcon className="w-6 h-6 text-white" />
       </button>
 
-      {/* Modal - Apple style */}
+      {/* Modal */}
       {showModal && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
           onClick={() => setShowModal(false)}
         >
           <div 
-            className="bg-gray-900/95 backdrop-blur-xl rounded-2xl w-full max-w-md 
-              border border-white/10 shadow-2xl shadow-black/50"
+            className="bg-gray-900 rounded-xl w-full max-w-md border border-gray-700 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <h2 className="text-base font-semibold text-white">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+              <h2 className="text-lg font-bold text-white">
                 {editingLead ? 'Edit Lead' : 'New Lead'}
               </h2>
               <button onClick={() => setShowModal(false)}
-                className="p-1 rounded-lg hover:bg-white/10 transition-colors">
+                className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors">
                 <XMarkIcon className="w-5 h-5 text-gray-400" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-5 space-y-5">
+            <div className="px-5 py-4 space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">Name</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Name *</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 
-                    text-white text-sm placeholder-gray-500
-                    focus:border-white/20 focus:bg-white/10 focus:outline-none transition-all"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
+                    text-white placeholder-gray-500
+                    focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                   placeholder="John Smith"
                   autoFocus
                 />
               </div>
 
               {/* Contact Row */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-2">Phone</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData(f => ({ ...f, phone: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 
-                      text-white text-sm placeholder-gray-500
-                      focus:border-white/20 focus:bg-white/10 focus:outline-none transition-all"
+                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
+                      text-white placeholder-gray-500
+                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                     placeholder="(555) 123-4567"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-2">Email</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData(f => ({ ...f, email: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 
-                      text-white text-sm placeholder-gray-500
-                      focus:border-white/20 focus:bg-white/10 focus:outline-none transition-all"
+                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
+                      text-white placeholder-gray-500
+                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                     placeholder="john@email.com"
                   />
                 </div>
@@ -473,32 +483,31 @@ export default function PipelinePage() {
 
               {/* Stage */}
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">Stage</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Stage</label>
                 <select
                   value={formData.stage}
                   onChange={(e) => setFormData(f => ({ ...f, stage: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 
-                    text-white text-sm focus:border-white/20 focus:bg-white/10 focus:outline-none 
-                    transition-all appearance-none cursor-pointer"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
+                    text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                 >
                   {STAGES.map(s => (
-                    <option key={s.id} value={s.id} className="bg-gray-900">{s.name}</option>
+                    <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
               </div>
 
               {/* Deal Value */}
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">Deal Value</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Deal Value</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
                   <input
                     type="number"
                     value={formData.deal_value}
                     onChange={(e) => setFormData(f => ({ ...f, deal_value: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-3 
-                      text-white text-sm placeholder-gray-500
-                      focus:border-white/20 focus:bg-white/10 focus:outline-none transition-all"
+                    className="w-full bg-gray-800 border border-gray-600 rounded-lg pl-8 pr-4 py-2.5 
+                      text-white placeholder-gray-500
+                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                     placeholder="350,000"
                   />
                 </div>
@@ -506,78 +515,70 @@ export default function PipelinePage() {
 
               {/* Property Address */}
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">Property Address</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Property Address</label>
                 <input
                   type="text"
                   value={formData.property_address}
                   onChange={(e) => setFormData(f => ({ ...f, property_address: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 
-                    text-white text-sm placeholder-gray-500
-                    focus:border-white/20 focus:bg-white/10 focus:outline-none transition-all"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
+                    text-white placeholder-gray-500
+                    focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                   placeholder="123 Main St, Austin, TX"
                 />
               </div>
 
               {/* Type & Priority */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-2">Type</label>
-                  <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
-                    {(['buyer', 'seller', 'both'] as const).map(type => (
-                      <button
-                        key={type}
-                        onClick={() => setFormData(f => ({ ...f, lead_type: type }))}
-                        className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all
-                          ${formData.lead_type === type 
-                            ? 'bg-white/15 text-white' 
-                            : 'text-gray-400 hover:text-gray-300'}`}
-                      >
-                        {type === 'buyer' ? 'Buyer' : type === 'seller' ? 'Seller' : 'Both'}
-                      </button>
-                    ))}
-                  </div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Type</label>
+                  <select
+                    value={formData.lead_type}
+                    onChange={(e) => setFormData(f => ({ ...f, lead_type: e.target.value as any }))}
+                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
+                      text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="buyer">Buyer</option>
+                    <option value="seller">Seller</option>
+                    <option value="both">Both</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-2">Priority</label>
-                  <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
-                    {(['hot', 'warm', 'cold'] as const).map(priority => (
-                      <button
-                        key={priority}
-                        onClick={() => setFormData(f => ({ ...f, priority }))}
-                        className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all
-                          ${formData.priority === priority 
-                            ? 'bg-white/15 text-white' 
-                            : 'text-gray-400 hover:text-gray-300'}`}
-                      >
-                        {priority === 'hot' ? 'Hot' : priority === 'warm' ? 'Warm' : 'Cold'}
-                      </button>
-                    ))}
-                  </div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Priority</label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => setFormData(f => ({ ...f, priority: e.target.value as any }))}
+                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 
+                      text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="hot">Hot</option>
+                    <option value="warm">Warm</option>
+                    <option value="cold">Cold</option>
+                  </select>
                 </div>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
+            <div className="flex items-center justify-between px-5 py-4 border-t border-gray-700 bg-gray-800/50 rounded-b-xl">
               <div>
                 {editingLead && (
                   <button onClick={handleDelete}
-                    className="text-sm text-red-400 hover:text-red-300 transition-colors">
-                    Delete
+                    className="text-sm text-red-400 hover:text-red-300 font-medium">
+                    Delete Lead
                   </button>
                 )}
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+                  className="px-4 py-2 text-sm text-gray-300 hover:text-white font-medium">
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={!formData.name.trim()}
-                  className="px-5 py-2 bg-white text-gray-900 rounded-xl text-sm font-medium
-                    hover:bg-gray-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                  {editingLead ? 'Save' : 'Add Lead'}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg 
+                    text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  {editingLead ? 'Save Changes' : 'Add Lead'}
                 </button>
               </div>
             </div>
