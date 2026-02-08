@@ -5,15 +5,12 @@ import {
   UserGroupIcon,
   TrophyIcon,
   ChartBarIcon,
-  FireIcon,
-  StarIcon,
   PlusIcon,
-  ArrowTrendingUpIcon,
-  CalendarIcon,
   CurrencyDollarIcon,
-  CheckCircleIcon,
   UserPlusIcon,
-  ClipboardDocumentIcon
+  ClipboardDocumentIcon,
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
@@ -21,8 +18,7 @@ interface TeamMember {
   id: number;
   name: string;
   email: string;
-  role: 'leader' | 'member';
-  avatar?: string;
+  role: 'leader' | 'admin' | 'agent';
   stats: {
     dealsClosedYTD: number;
     dealsClosedMonth: number;
@@ -42,24 +38,33 @@ interface Goal {
   year: number;
 }
 
+interface TeamData {
+  teamName: string;
+  joinCode: string;
+  members: TeamMember[];
+  goals: Goal[];
+  hasTeam: boolean;
+}
+
 const STORAGE_KEY = 'agentassist_team_data';
 
 export default function TeamPage() {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'members' | 'goals'>('leaderboard');
-  const [teamData, setTeamData] = useState<{
-    teamName: string;
-    joinCode: string;
-    members: TeamMember[];
-    goals: Goal[];
-  }>({
-    teamName: 'The Dream Team',
-    joinCode: 'DREAM2026',
+  const [teamData, setTeamData] = useState<TeamData>({
+    teamName: '',
+    joinCode: '',
     members: [],
-    goals: []
+    goals: [],
+    hasTeam: false
   });
   const [dataLoaded, setDataLoaded] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  const [newTeamName, setNewTeamName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
 
   const [goalForm, setGoalForm] = useState({
     type: 'deals' as Goal['type'],
@@ -72,23 +77,8 @@ export default function TeamPage() {
     if (typeof window === 'undefined') return;
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      setTeamData(JSON.parse(saved));
-    } else {
-      // Demo data
-      setTeamData({
-        teamName: 'The Dream Team',
-        joinCode: 'DREAM2026',
-        members: [
-          { id: 1, name: 'You', email: 'you@email.com', role: 'leader', stats: { dealsClosedYTD: 8, dealsClosedMonth: 2, leadsAdded: 45, volumeYTD: 3200000, activePipeline: 1500000 }, joinedAt: '2026-01-01' },
-          { id: 2, name: 'Sarah Johnson', email: 'sarah@email.com', role: 'member', stats: { dealsClosedYTD: 12, dealsClosedMonth: 3, leadsAdded: 67, volumeYTD: 4800000, activePipeline: 2100000 }, joinedAt: '2026-01-15' },
-          { id: 3, name: 'Mike Chen', email: 'mike@email.com', role: 'member', stats: { dealsClosedYTD: 6, dealsClosedMonth: 1, leadsAdded: 32, volumeYTD: 2100000, activePipeline: 800000 }, joinedAt: '2026-02-01' },
-          { id: 4, name: 'Emily Davis', email: 'emily@email.com', role: 'member', stats: { dealsClosedYTD: 10, dealsClosedMonth: 2, leadsAdded: 55, volumeYTD: 3900000, activePipeline: 1200000 }, joinedAt: '2026-01-20' },
-        ],
-        goals: [
-          { id: 1, type: 'deals', target: 24, current: 8, period: 'yearly', year: 2026 },
-          { id: 2, type: 'volume', target: 10000000, current: 3200000, period: 'yearly', year: 2026 },
-        ]
-      });
+      const parsed = JSON.parse(saved);
+      setTeamData(parsed);
     }
     setDataLoaded(true);
   }, []);
@@ -98,6 +88,79 @@ export default function TeamPage() {
     if (!dataLoaded) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(teamData));
   }, [teamData, dataLoaded]);
+
+  // Generate join code
+  const generateJoinCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  // Create team
+  const createTeam = () => {
+    if (!newTeamName.trim()) return;
+    
+    const code = generateJoinCode();
+    const currentUser: TeamMember = {
+      id: 1,
+      name: 'You',
+      email: localStorage.getItem('user_email') || 'you@email.com',
+      role: 'leader',
+      stats: { dealsClosedYTD: 0, dealsClosedMonth: 0, leadsAdded: 0, volumeYTD: 0, activePipeline: 0 },
+      joinedAt: new Date().toISOString().split('T')[0]
+    };
+
+    setTeamData({
+      teamName: newTeamName.trim(),
+      joinCode: code,
+      members: [currentUser],
+      goals: [],
+      hasTeam: true
+    });
+    setShowCreateModal(false);
+    setNewTeamName('');
+  };
+
+  // Join team (simulated - in production would validate code against backend)
+  const joinTeam = () => {
+    if (!joinCode.trim()) return;
+    
+    // For now, simulate joining with a generic team
+    const currentUser: TeamMember = {
+      id: Date.now(),
+      name: 'You',
+      email: localStorage.getItem('user_email') || 'you@email.com',
+      role: 'agent',
+      stats: { dealsClosedYTD: 0, dealsClosedMonth: 0, leadsAdded: 0, volumeYTD: 0, activePipeline: 0 },
+      joinedAt: new Date().toISOString().split('T')[0]
+    };
+
+    setTeamData({
+      teamName: 'Joined Team',
+      joinCode: joinCode.trim().toUpperCase(),
+      members: [currentUser],
+      goals: [],
+      hasTeam: true
+    });
+    setShowJoinModal(false);
+    setJoinCode('');
+  };
+
+  // Leave team
+  const leaveTeam = () => {
+    if (!confirm('Are you sure you want to leave this team? This cannot be undone.')) return;
+    
+    setTeamData({
+      teamName: '',
+      joinCode: '',
+      members: [],
+      goals: [],
+      hasTeam: false
+    });
+  };
 
   // Sort members by deals (leaderboard)
   const leaderboard = [...teamData.members].sort((a, b) => b.stats.dealsClosedYTD - a.stats.dealsClosedYTD);
@@ -109,7 +172,6 @@ export default function TeamPage() {
     const yearProgress = (now.getMonth() + 1) / 12 * 100;
     const isOnTrack = progress >= yearProgress - 10;
     
-    // Calculate required velocity
     const remaining = goal.target - goal.current;
     const monthsLeft = 12 - now.getMonth();
     const requiredPerMonth = remaining / monthsLeft;
@@ -158,6 +220,180 @@ export default function TeamPage() {
     return `#${index + 1}`;
   };
 
+  // Get role badge
+  const getRoleBadge = (role: TeamMember['role']) => {
+    switch (role) {
+      case 'leader':
+        return <span className="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 px-2 py-0.5 rounded-full">👑 Team Leader</span>;
+      case 'admin':
+        return <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded-full">⭐ Admin</span>;
+      default:
+        return <span className="text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">Agent</span>;
+    }
+  };
+
+  // No team - show empty state
+  if (dataLoaded && !teamData.hasTeam) {
+    return (
+      <div className="p-6 md:p-8">
+        <div className="mb-6">
+          <BackButton />
+        </div>
+
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-12">
+            <UserGroupIcon className="w-20 h-20 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+              Team Collaboration
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 text-lg">
+              Join or create a team to track leaderboards, set shared goals, and collaborate with other agents.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Create Team Card */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="glass dark:glass-dark rounded-2xl p-8 border border-white/30 dark:border-white/10 text-left hover:border-primary-500 transition-colors group"
+            >
+              <div className="w-14 h-14 bg-primary-100 dark:bg-primary-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary-200 transition-colors">
+                <PlusIcon className="w-8 h-8 text-primary-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Create a Team
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Start a new team and invite other agents to join. You'll be the team leader.
+              </p>
+            </button>
+
+            {/* Join Team Card */}
+            <button
+              onClick={() => setShowJoinModal(true)}
+              className="glass dark:glass-dark rounded-2xl p-8 border border-white/30 dark:border-white/10 text-left hover:border-primary-500 transition-colors group"
+            >
+              <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-200 transition-colors">
+                <UserPlusIcon className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Join a Team
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Have a team code? Enter it here to join an existing team.
+              </p>
+            </button>
+          </div>
+
+          {/* Coming Soon Features */}
+          <div className="mt-12 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">Coming Soon</h3>
+            <ul className="space-y-3 text-gray-600 dark:text-gray-400">
+              <li className="flex items-center gap-2">
+                <span className="text-green-500">✓</span> Team leaderboards & performance tracking
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-green-500">✓</span> Shared goals with progress tracking
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-yellow-500">⏳</span> Real-time team sync (requires backend)
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-yellow-500">⏳</span> Calendar permissions & task assignment
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Create Team Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-xl">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+                Create a Team
+              </h2>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Team Name
+                </label>
+                <input
+                  type="text"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  placeholder="e.g., Portland Elite Realty"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600"
+                  autoFocus
+                />
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                You'll be the team leader with full admin permissions. A join code will be generated automatically.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createTeam}
+                  disabled={!newTeamName.trim()}
+                  className="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors disabled:opacity-50"
+                >
+                  Create Team
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Join Team Modal */}
+        {showJoinModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-xl">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+                Join a Team
+              </h2>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Team Code
+                </label>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="e.g., ABC12345"
+                  maxLength={8}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-mono text-lg tracking-wider text-center"
+                  autoFocus
+                />
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                Ask your team leader for the 8-character join code.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowJoinModal(false)}
+                  className="flex-1 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={joinTeam}
+                  disabled={joinCode.length < 6}
+                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  Join Team
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Has team - show full UI
   return (
     <div className="p-6 md:p-8">
       <div className="mb-6">
@@ -174,7 +410,7 @@ export default function TeamPage() {
             </h1>
           </div>
           <p className="text-gray-600 dark:text-gray-400">
-            {teamData.members.length} team members
+            {teamData.members.length} team member{teamData.members.length !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -224,82 +460,95 @@ export default function TeamPage() {
       {/* Leaderboard Tab */}
       {activeTab === 'leaderboard' && (
         <div className="space-y-6">
-          {/* Top 3 Podium */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            {leaderboard.slice(0, 3).map((member, index) => (
-              <div
-                key={member.id}
-                className={`glass dark:glass-dark rounded-2xl p-6 border border-white/30 dark:border-white/10 text-center ${
-                  index === 0 ? 'ring-2 ring-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/20' : ''
-                }`}
-              >
-                <div className="text-4xl mb-2">{getRankMedal(index)}</div>
-                <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
-                  {member.name.charAt(0)}
-                </div>
-                <h3 className="font-semibold text-gray-900 dark:text-white">{member.name}</h3>
-                <p className="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">
-                  {member.stats.dealsClosedYTD}
-                </p>
-                <p className="text-sm text-gray-500">deals closed</p>
-                <p className="text-sm text-green-600 mt-1">
-                  {formatCurrency(member.stats.volumeYTD)} volume
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* Full Rankings */}
-          <div className="glass dark:glass-dark rounded-2xl border border-white/30 dark:border-white/10 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rank</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Agent</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Deals (YTD)</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">This Month</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Leads Added</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Volume</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {leaderboard.map((member, index) => (
-                  <tr key={member.id} className={index === 0 ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}>
-                    <td className="px-6 py-4 text-2xl">{getRankMedal(index)}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-semibold">
-                          {member.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{member.name}</p>
-                          <p className="text-xs text-gray-500">{member.role === 'leader' ? '👑 Team Lead' : 'Agent'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center font-bold text-gray-900 dark:text-white">
+          {teamData.members.length < 2 ? (
+            <div className="glass dark:glass-dark rounded-2xl p-12 text-center border border-white/30 dark:border-white/10">
+              <TrophyIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Invite Your Team
+              </h3>
+              <p className="text-gray-500 mb-4">
+                Share your team code to see the leaderboard
+              </p>
+              <code className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-lg font-mono">
+                {teamData.joinCode}
+              </code>
+            </div>
+          ) : (
+            <>
+              {/* Top 3 Podium */}
+              <div className="grid grid-cols-3 gap-4 mb-8">
+                {leaderboard.slice(0, 3).map((member, index) => (
+                  <div
+                    key={member.id}
+                    className={`glass dark:glass-dark rounded-2xl p-6 border border-white/30 dark:border-white/10 text-center ${
+                      index === 0 ? 'ring-2 ring-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/20' : ''
+                    }`}
+                  >
+                    <div className="text-4xl mb-2">{getRankMedal(index)}</div>
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
+                      {member.name.charAt(0)}
+                    </div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{member.name}</h3>
+                    <p className="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">
                       {member.stats.dealsClosedYTD}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-2 py-1 rounded-full text-sm ${
-                        member.stats.dealsClosedMonth >= 2 
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
-                        {member.stats.dealsClosedMonth}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400">
-                      {member.stats.leadsAdded}
-                    </td>
-                    <td className="px-6 py-4 text-right font-medium text-green-600">
-                      {formatCurrency(member.stats.volumeYTD)}
-                    </td>
-                  </tr>
+                    </p>
+                    <p className="text-sm text-gray-500">deals closed</p>
+                    <p className="text-sm text-green-600 mt-1">
+                      {formatCurrency(member.stats.volumeYTD)} volume
+                    </p>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              {/* Full Rankings */}
+              <div className="glass dark:glass-dark rounded-2xl border border-white/30 dark:border-white/10 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rank</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Agent</th>
+                      <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Deals (YTD)</th>
+                      <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">This Month</th>
+                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Volume</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {leaderboard.map((member, index) => (
+                      <tr key={member.id} className={index === 0 ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}>
+                        <td className="px-6 py-4 text-2xl">{getRankMedal(index)}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-semibold">
+                              {member.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">{member.name}</p>
+                              <p className="text-xs">{getRoleBadge(member.role)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center font-bold text-gray-900 dark:text-white">
+                          {member.stats.dealsClosedYTD}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2 py-1 rounded-full text-sm ${
+                            member.stats.dealsClosedMonth >= 2 
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                          }`}>
+                            {member.stats.dealsClosedMonth}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-green-600">
+                          {formatCurrency(member.stats.volumeYTD)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -404,7 +653,7 @@ export default function TeamPage() {
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     {member.name}
-                    {member.role === 'leader' && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Team Lead</span>}
+                    {getRoleBadge(member.role)}
                   </p>
                   <p className="text-sm text-gray-500">{member.email}</p>
                 </div>
@@ -418,10 +667,6 @@ export default function TeamPage() {
                   <p className="font-bold text-green-600">{formatCurrency(member.stats.volumeYTD)}</p>
                   <p className="text-gray-500">volume</p>
                 </div>
-                <div className="text-center">
-                  <p className="font-bold text-blue-600">{formatCurrency(member.stats.activePipeline)}</p>
-                  <p className="text-gray-500">pipeline</p>
-                </div>
               </div>
             </div>
           ))}
@@ -434,6 +679,15 @@ export default function TeamPage() {
               {teamData.joinCode}
             </code>
           </div>
+
+          {/* Leave Team */}
+          <button
+            onClick={leaveTeam}
+            className="w-full py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+            Leave Team
+          </button>
         </div>
       )}
 
@@ -481,7 +735,7 @@ export default function TeamPage() {
                   placeholder={goalForm.type === 'volume' ? '10000000' : '24'}
                   value={goalForm.target}
                   onChange={(e) => setGoalForm({ ...goalForm, target: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {goalForm.type === 'volume' ? 'Enter dollar amount (e.g., 10000000 for $10M)' : 'Number of ' + goalForm.type}
@@ -495,7 +749,7 @@ export default function TeamPage() {
                 <select
                   value={goalForm.period}
                   onChange={(e) => setGoalForm({ ...goalForm, period: e.target.value as Goal['period'] })}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600"
                 >
                   <option value="yearly">Yearly (2026)</option>
                   <option value="monthly">Monthly</option>

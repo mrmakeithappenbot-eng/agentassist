@@ -19,7 +19,9 @@ import {
   MapPinIcon,
   ReceiptPercentIcon,
   PlusIcon,
-  TrashIcon
+  TrashIcon,
+  UserGroupIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
@@ -48,6 +50,23 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState({ full_name: '', phone: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // Team settings state
+  const TEAM_STORAGE_KEY = 'agentassist_team_data';
+  const [teamData, setTeamData] = useState<{
+    teamName: string;
+    joinCode: string;
+    members: Array<{
+      id: number;
+      name: string;
+      email: string;
+      role: 'leader' | 'admin' | 'agent';
+      calendarPermission: 'full' | 'request' | 'none';
+    }>;
+    hasTeam: boolean;
+  } | null>(null);
+  const [editingTeamName, setEditingTeamName] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
   
   // Expense tracking state
   const [expensePresets, setExpensePresets] = useState([
@@ -100,7 +119,55 @@ export default function SettingsPage() {
     // Load saved theme
     const savedTheme = localStorage.getItem('theme') || 'system';
     setTheme(savedTheme);
+    
+    // Load team data
+    const savedTeam = localStorage.getItem(TEAM_STORAGE_KEY);
+    if (savedTeam) {
+      const parsed = JSON.parse(savedTeam);
+      setTeamData(parsed);
+      setNewTeamName(parsed.teamName || '');
+    }
   }, [router]);
+  
+  // Save team data helper
+  const saveTeamData = (data: typeof teamData) => {
+    if (data) {
+      localStorage.setItem(TEAM_STORAGE_KEY, JSON.stringify(data));
+      setTeamData(data);
+    }
+  };
+  
+  // Update team name
+  const handleSaveTeamName = () => {
+    if (!teamData || !newTeamName.trim()) return;
+    saveTeamData({ ...teamData, teamName: newTeamName.trim() });
+    setEditingTeamName(false);
+  };
+  
+  // Update member role
+  const handleUpdateMemberRole = (memberId: number, newRole: 'leader' | 'admin' | 'agent') => {
+    if (!teamData) return;
+    const updatedMembers = teamData.members.map(m => 
+      m.id === memberId ? { ...m, role: newRole } : m
+    );
+    saveTeamData({ ...teamData, members: updatedMembers });
+  };
+  
+  // Update calendar permission
+  const handleUpdateCalendarPermission = (memberId: number, permission: 'full' | 'request' | 'none') => {
+    if (!teamData) return;
+    const updatedMembers = teamData.members.map(m => 
+      m.id === memberId ? { ...m, calendarPermission: permission } : m
+    );
+    saveTeamData({ ...teamData, members: updatedMembers });
+  };
+  
+  // Get current user's role
+  const getCurrentUserRole = () => {
+    if (!teamData) return null;
+    const currentUser = teamData.members.find(m => m.name === 'You');
+    return currentUser?.role || 'agent';
+  };
 
   // Save profile changes
   const handleSaveProfile = async () => {
@@ -166,6 +233,7 @@ export default function SettingsPage() {
 
   const menuItems = [
     { id: 'account', label: 'Account', icon: UserCircleIcon },
+    { id: 'team', label: 'Team', icon: UserGroupIcon },
     { id: 'import', label: 'Import Leads', icon: ArrowUpTrayIcon },
     { id: 'expenses', label: 'Expenses', icon: CalculatorIcon },
     { id: 'notifications', label: 'Notifications', icon: BellIcon },
@@ -313,6 +381,199 @@ export default function SettingsPage() {
                     {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Team Section */}
+            {activeSection === 'team' && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+                  Team Settings
+                </h2>
+                
+                {!teamData?.hasTeam ? (
+                  <div className="text-center py-12">
+                    <UserGroupIcon className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      No Team Yet
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      Join or create a team to manage team settings.
+                    </p>
+                    <button
+                      onClick={() => router.push('/dashboard/team')}
+                      className="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors"
+                    >
+                      Go to Team Page
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Team Name */}
+                    <div className="pb-6 border-b border-gray-100 dark:border-gray-700">
+                      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                        Team Name
+                      </label>
+                      {editingTeamName ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newTeamName}
+                            onChange={(e) => setNewTeamName(e.target.value)}
+                            className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleSaveTeamName}
+                            className="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingTeamName(false);
+                              setNewTeamName(teamData.teamName);
+                            }}
+                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-medium text-gray-900 dark:text-white">
+                            {teamData.teamName}
+                          </span>
+                          {(getCurrentUserRole() === 'leader' || getCurrentUserRole() === 'admin') && (
+                            <button
+                              onClick={() => setEditingTeamName(true)}
+                              className="flex items-center gap-1 text-primary-600 hover:text-primary-700"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Your Role */}
+                    <div className="pb-6 border-b border-gray-100 dark:border-gray-700">
+                      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                        Your Role
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {getCurrentUserRole() === 'leader' && (
+                          <span className="px-3 py-1.5 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 rounded-full text-sm font-medium">
+                            👑 Team Leader
+                          </span>
+                        )}
+                        {getCurrentUserRole() === 'admin' && (
+                          <span className="px-3 py-1.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-full text-sm font-medium">
+                            ⭐ Admin
+                          </span>
+                        )}
+                        {getCurrentUserRole() === 'agent' && (
+                          <span className="px-3 py-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-full text-sm font-medium">
+                            Agent
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {getCurrentUserRole() === 'leader' && 'You have full control over team settings and can assign roles.'}
+                        {getCurrentUserRole() === 'admin' && 'You can manage members and add events to calendars.'}
+                        {getCurrentUserRole() === 'agent' && 'You can request to add events to other members\' calendars.'}
+                      </p>
+                    </div>
+
+                    {/* Team Members & Permissions (Leaders/Admins only) */}
+                    {(getCurrentUserRole() === 'leader' || getCurrentUserRole() === 'admin') && (
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                          Member Roles & Permissions
+                        </h3>
+                        <div className="space-y-3">
+                          {teamData.members.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-semibold">
+                                  {member.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white">{member.name}</p>
+                                  <p className="text-sm text-gray-500">{member.email}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                {/* Role Selector */}
+                                <select
+                                  value={member.role}
+                                  onChange={(e) => handleUpdateMemberRole(member.id, e.target.value as 'leader' | 'admin' | 'agent')}
+                                  disabled={member.role === 'leader' && getCurrentUserRole() !== 'leader'}
+                                  className="px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-lg text-sm disabled:opacity-50"
+                                >
+                                  <option value="leader">👑 Leader</option>
+                                  <option value="admin">⭐ Admin</option>
+                                  <option value="agent">Agent</option>
+                                </select>
+                                
+                                {/* Calendar Permission */}
+                                <select
+                                  value={member.calendarPermission || 'request'}
+                                  onChange={(e) => handleUpdateCalendarPermission(member.id, e.target.value as 'full' | 'request' | 'none')}
+                                  className="px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-lg text-sm"
+                                >
+                                  <option value="full">📅 Full Access</option>
+                                  <option value="request">🔔 Request Only</option>
+                                  <option value="none">🚫 No Access</option>
+                                </select>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                          <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                            Calendar Permissions
+                          </h4>
+                          <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                            <li>• <strong>Full Access:</strong> Can add events directly to this member's calendar</li>
+                            <li>• <strong>Request Only:</strong> Must request approval before adding events</li>
+                            <li>• <strong>No Access:</strong> Cannot add events to this member's calendar</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Join Code */}
+                    <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                        Team Join Code
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <code className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-lg font-mono">
+                          {teamData.joinCode}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(teamData.joinCode);
+                            alert('Code copied!');
+                          }}
+                          className="px-3 py-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg text-sm"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Share this code with agents to invite them to your team.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
