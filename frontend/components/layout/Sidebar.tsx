@@ -15,13 +15,15 @@ import {
   HomeModernIcon,
   BoltIcon,
   UsersIcon,
-  TrophyIcon
+  TrophyIcon,
+  ViewColumnsIcon
 } from '@heroicons/react/24/outline';
 import { logout, getUser } from '@/lib/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Leads', href: '/dashboard/leads', icon: UserGroupIcon },
+  { name: 'Pipeline', href: '/dashboard/pipeline', icon: ViewColumnsIcon },
   { name: 'Campaigns', href: '/dashboard/campaigns', icon: BoltIcon },
   { name: 'Calendar', href: '/dashboard/calendar', icon: CalendarIcon },
   { name: 'Open Houses', href: '/dashboard/open-house', icon: HomeModernIcon },
