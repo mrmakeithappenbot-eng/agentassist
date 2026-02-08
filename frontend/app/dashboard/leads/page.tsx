@@ -31,6 +31,8 @@ interface Lead {
   address: string | null;
   price_range_min: number | null;
   price_range_max: number | null;
+  notes: string | null;
+  created_at: string | null;
 }
 
 // Lead scoring helper
@@ -71,7 +73,7 @@ export default function LeadsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [sortBy, setSortBy] = useState<'score' | 'name' | 'status'>('score');
+  const [sortBy, setSortBy] = useState<'date' | 'score' | 'name' | 'status'>('date');
   const [messageModal, setMessageModal] = useState<{lead: Lead; type: 'sms'|'email'}|null>(null);
   const [formData, setFormData] = useState({
     first_name: '',
@@ -257,6 +259,7 @@ export default function LeadsPage() {
             onChange={(e) => setSortBy(e.target.value as any)}
             className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
           >
+            <option value="date">📅 Newest First</option>
             <option value="score">🔥 Hot First</option>
             <option value="name">Name A-Z</option>
             <option value="status">Status</option>
@@ -302,6 +305,11 @@ export default function LeadsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...leads]
             .sort((a, b) => {
+              if (sortBy === 'date') {
+                const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return dateB - dateA; // Newest first
+              }
               if (sortBy === 'score') return getLeadScore(b) - getLeadScore(a);
               if (sortBy === 'name') return (a.first_name || '').localeCompare(b.first_name || '');
               return (a.status || '').localeCompare(b.status || '');
@@ -388,6 +396,22 @@ export default function LeadsPage() {
                     </span>
                   ))}
                 </div>
+              )}
+
+              {/* Notes */}
+              {lead.notes && (
+                <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 italic line-clamp-2">
+                    📝 {lead.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Date Added */}
+              {lead.created_at && (
+                <p className="text-xs text-gray-400 mb-3">
+                  Added {new Date(lead.created_at).toLocaleDateString()}
+                </p>
               )}
 
               {/* Action Buttons */}

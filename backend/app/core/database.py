@@ -92,6 +92,7 @@ def init_db():
         
         # Run migrations for new columns on existing tables
         migrate_add_column("users", "phone", "TEXT")
+        migrate_add_column("leads", "address", "TEXT")
         
     except Exception as e:
         print(f"❌ Database initialization error: {e}")
