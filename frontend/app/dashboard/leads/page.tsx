@@ -398,15 +398,6 @@ export default function LeadsPage() {
                 </div>
               )}
 
-              {/* Notes */}
-              {lead.notes && (
-                <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200 italic line-clamp-2">
-                    📝 {lead.notes}
-                  </p>
-                </div>
-              )}
-
               {/* Date Added */}
               {lead.created_at && (
                 <p className="text-xs text-gray-400 mb-3">

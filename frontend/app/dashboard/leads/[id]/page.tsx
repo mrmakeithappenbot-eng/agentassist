@@ -29,8 +29,11 @@ interface Lead {
   status: string | null;
   tags: string[];
   location: string | null;
+  address: string | null;
   price_range_min: number | null;
   price_range_max: number | null;
+  notes: string | null;
+  created_at: string | null;
 }
 
 interface Activity {
@@ -267,7 +270,7 @@ export default function LeadDetailPage() {
 
         {/* Tags */}
         {lead.tags && lead.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-4">
             {lead.tags.map((tag, idx) => (
               <span
                 key={idx}
@@ -277,6 +280,32 @@ export default function LeadDetailPage() {
                 {tag}
               </span>
             ))}
+          </div>
+        )}
+
+        {/* Property Address */}
+        {lead.address && (
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start">
+              <MapPinIcon className="w-5 h-5 mr-3 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Property Address</p>
+                <p className="text-blue-700 dark:text-blue-300">{lead.address}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {lead.notes && (
+          <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <div className="flex items-start">
+              <DocumentTextIcon className="w-5 h-5 mr-3 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">Notes</p>
+                <p className="text-yellow-700 dark:text-yellow-300 whitespace-pre-wrap">{lead.notes}</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
