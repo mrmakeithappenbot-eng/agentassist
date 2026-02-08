@@ -328,33 +328,7 @@ export default function SettingsPage() {
                 </p>
 
                 {/* CSV Upload */}
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center mb-6">
-                  <ArrowUpTrayIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Drop your CSV file here
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    or click to browse
-                  </p>
-                  <input
-                    type="file"
-                    accept=".csv,.xlsx,.xls"
-                    className="hidden"
-                    id="csv-upload"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        alert(`Selected: ${file.name} - CSV import coming soon!`);
-                      }
-                    }}
-                  />
-                  <label
-                    htmlFor="csv-upload"
-                    className="inline-block px-6 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors cursor-pointer"
-                  >
-                    Choose File
-                  </label>
-                </div>
+                <CsvImporter />
 
                 {/* Quick Links */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -937,6 +911,142 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// CSV Importer Component
+function CsvImporter() {
+  const [isUploading, setIsUploading] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string; count?: number } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.name.endsWith('.csv')) {
+      setResult({ success: false, message: 'Please upload a CSV file' });
+      return;
+    }
+
+    setIsUploading(true);
+    setResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+      const response = await fetch(`${apiUrl}/api/leads/import`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setResult({ 
+          success: true, 
+          message: data.message || `Successfully imported ${data.imported} leads!`,
+          count: data.imported 
+        });
+      } else {
+        setResult({ success: false, message: data.error || 'Failed to import leads' });
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      setResult({ success: false, message: 'Network error. Please try again.' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleUpload(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleUpload(file);
+  };
+
+  return (
+    <div className="mb-6">
+      <div 
+        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-colors
+          ${dragOver 
+            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+            : 'border-gray-300 dark:border-gray-600'
+          }
+          ${isUploading ? 'opacity-50 pointer-events-none' : ''}
+        `}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        {isUploading ? (
+          <>
+            <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-900 dark:text-white">
+              Importing leads...
+            </p>
+          </>
+        ) : (
+          <>
+            <ArrowUpTrayIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Drop your CSV file here
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              or click to browse
+            </p>
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              id="csv-upload"
+              onChange={handleFileChange}
+            />
+            <label
+              htmlFor="csv-upload"
+              className="inline-block px-6 py-2.5 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 transition-colors cursor-pointer"
+            >
+              Choose File
+            </label>
+          </>
+        )}
+      </div>
+
+      {/* Result Message */}
+      {result && (
+        <div className={`mt-4 p-4 rounded-xl ${
+          result.success 
+            ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' 
+            : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+        }`}>
+          <p className="font-medium">{result.message}</p>
+          {result.success && result.count && (
+            <p className="text-sm mt-1 opacity-80">
+              Your leads are now available in the Leads and Pipeline pages.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Column Mapping Info */}
+      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supported columns:</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          first_name, last_name, email, phone, status, location, price_min, price_max, tags
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          Column names are flexible (e.g., "First Name", "firstName", "first-name" all work)
+        </p>
       </div>
     </div>
   );
