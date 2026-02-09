@@ -81,7 +81,10 @@ def init_db():
         from app.models.user import User
         from app.models.leads import Lead
         from app.models.activity import LeadActivity
-        from app.models.team_simple import Team, Task, TaskAssignment
+        from app.models.team_simple import Team, Task as TeamTask, TaskAssignment
+        from app.models.tasks import Task as UserTask
+        from app.models.campaigns import Campaign, CampaignStep, CampaignEnrollment
+        from app.models.gmail_oauth import GmailToken
         
         # Create all tables (only creates missing ones)
         Base.metadata.create_all(bind=engine)
