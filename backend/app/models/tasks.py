@@ -9,7 +9,7 @@ from datetime import datetime
 from app.core.database import Base
 
 class Task(Base):
-    __tablename__ = "tasks"
+    __tablename__ = "user_tasks"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)  # Owner
