@@ -108,7 +108,7 @@ export default function LeadsPage() {
   const fetchLeads = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
-      const response = await fetchWithAuth(`${apiUrl}/api/leads?limit=100`);
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/?limit=100`);
       const data = await response.json();
       
       if (data.success) {
