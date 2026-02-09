@@ -24,6 +24,7 @@ import {
   PencilIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
+import { fetchWithAuth } from '@/lib/auth';
 
 interface UserProfile {
   email: string;
@@ -1200,7 +1201,7 @@ function CsvImporter() {
       formData.append('file', file);
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
-      const response = await fetch(`${apiUrl}/api/leads/import`, {
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/import`, {
         method: 'POST',
         body: formData,
       });
