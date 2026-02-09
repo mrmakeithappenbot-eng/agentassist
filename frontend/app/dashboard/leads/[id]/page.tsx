@@ -236,46 +236,53 @@ export default function LeadDetailPage() {
     setNotesValue('');
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!taskForm.title.trim() || !taskForm.dueDate) return;
     
-    const leadName = `${lead?.first_name || ''} ${lead?.last_name || ''}`.trim();
-    
-    const newTask: Task = {
-      id: Date.now(),
-      title: taskForm.title,
-      description: taskForm.description || undefined,
-      type: taskForm.type,
-      dueDate: taskForm.dueDate,
-      dueTime: taskForm.dueTime || undefined,
-      priority: taskForm.priority,
-      completed: false,
-      leadName: leadName || undefined,
-      leadId: parseInt(leadId) || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    
-    // Load existing tasks
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const existingTasks = saved ? JSON.parse(saved) : [];
-    
-    // Add new task
-    const updatedTasks = [...existingTasks, newTask];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTasks));
-    
-    // Reset form and close modal
-    setTaskForm({
-      title: '',
-      description: '',
-      type: 'call',
-      dueDate: '',
-      dueTime: '',
-      priority: 'medium',
-    });
-    setShowTaskModal(false);
-    
-    // Show success message
-    alert('Task created! View it in the Tasks tab.');
+    try {
+      const leadName = `${lead?.first_name || ''} ${lead?.last_name || ''}`.trim();
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: taskForm.title,
+          description: taskForm.description || '',
+          type: taskForm.type,
+          dueDate: taskForm.dueDate,
+          dueTime: taskForm.dueTime || '',
+          priority: taskForm.priority,
+          leadName: leadName || '',
+          leadId: parseInt(leadId) || undefined
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Reset form and close modal
+        setTaskForm({
+          title: '',
+          description: '',
+          type: 'call',
+          dueDate: '',
+          dueTime: '',
+          priority: 'medium',
+        });
+        setShowTaskModal(false);
+        
+        // Show success message
+        alert('Task created! View it in the Tasks tab.');
+      } else {
+        alert('Failed to create task');
+      }
+    } catch (err) {
+      console.error('Failed to create task:', err);
+      alert('Error creating task');
+    }
   };
 
   const handleOpenTaskModal = () => {
