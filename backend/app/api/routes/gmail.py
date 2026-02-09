@@ -10,8 +10,18 @@ from typing import Optional
 from datetime import datetime
 import json
 import base64
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+try:
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import Flow
+    from googleapiclient.discovery import build
+    from google.auth.transport.requests import Request as GoogleRequest
+    GMAIL_AVAILABLE = True
+except ImportError:
+    GMAIL_AVAILABLE = False
 
 from app.core.database import get_db
 from app.models.gmail_oauth import GmailToken
@@ -27,6 +37,10 @@ SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email'
 ]
 
+CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
+CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+REDIRECT_URI = os.getenv('GMAIL_REDIRECT_URI', 'https://agentassist-1.onrender.com/api/gmail/oauth/callback')
+
 class GmailSendRequest(BaseModel):
     to: str
     subject: str
@@ -39,19 +53,20 @@ async def get_gmail_oauth_url(
 ):
     """
     Get Gmail OAuth authorization URL
-    NOTE: In production, you need to set up Google Cloud credentials
     """
     try:
-        # This is a placeholder - you need to configure Google OAuth in settings
-        client_id = "YOUR_GOOGLE_CLIENT_ID"  # Set via env var
-        redirect_uri = "https://agentassist-1.onrender.com/api/gmail/oauth/callback"
+        if not GMAIL_AVAILABLE:
+            raise HTTPException(
+                status_code=500,
+                detail="Gmail libraries not installed. Run: pip install google-auth-oauthlib google-api-python-client"
+            )
         
         # Build OAuth URL
         scope_string = " ".join(SCOPES)
         oauth_url = (
             f"https://accounts.google.com/o/oauth2/v2/auth?"
-            f"client_id={client_id}&"
-            f"redirect_uri={redirect_uri}&"
+            f"client_id={CLIENT_ID}&"
+            f"redirect_uri={REDIRECT_URI}&"
             f"response_type=code&"
             f"scope={scope_string}&"
             f"access_type=offline&"
@@ -61,8 +76,7 @@ async def get_gmail_oauth_url(
         
         return {
             "success": True,
-            "oauth_url": oauth_url,
-            "instructions": "You need to set up Google Cloud OAuth credentials first"
+            "oauth_url": oauth_url
         }
         
     except Exception as e:
@@ -81,18 +95,74 @@ async def gmail_oauth_callback(
     try:
         user_id = int(state)
         
-        # TODO: Exchange code for tokens using Google OAuth
-        # This requires google-auth-oauthlib library
-        # For now, return placeholder
+        if not GMAIL_AVAILABLE:
+            return RedirectResponse(
+                url="https://frontend-eta-amber-58.vercel.app/dashboard/settings?gmail=error&msg=libraries_missing",
+                status_code=302
+            )
+        
+        # Exchange authorization code for tokens
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": CLIENT_ID,
+                    "client_secret": CLIENT_SECRET,
+                    "redirect_uris": [REDIRECT_URI],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token"
+                }
+            },
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
+        
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        
+        # Get user's email address
+        service = build('oauth2', 'v2', credentials=credentials)
+        user_info = service.userinfo().get().execute()
+        email_address = user_info.get('email')
+        
+        # Store or update token in database
+        existing_token = db.query(GmailToken).filter(
+            GmailToken.user_id == user_id
+        ).first()
+        
+        if existing_token:
+            # Update existing token
+            existing_token.access_token = credentials.token
+            existing_token.refresh_token = credentials.refresh_token or existing_token.refresh_token
+            existing_token.scopes = json.dumps(list(credentials.scopes))
+            existing_token.expiry = credentials.expiry
+            existing_token.email_address = email_address
+            existing_token.is_active = True
+            existing_token.updated_at = datetime.utcnow()
+        else:
+            # Create new token
+            new_token = GmailToken(
+                user_id=user_id,
+                access_token=credentials.token,
+                refresh_token=credentials.refresh_token,
+                token_uri=credentials.token_uri,
+                scopes=json.dumps(list(credentials.scopes)),
+                expiry=credentials.expiry,
+                email_address=email_address,
+                is_active=True
+            )
+            db.add(new_token)
+        
+        db.commit()
         
         return RedirectResponse(
-            url="/dashboard/settings?gmail=connected",
+            url=f"https://frontend-eta-amber-58.vercel.app/dashboard/settings?gmail=connected&email={email_address}",
             status_code=302
         )
         
     except Exception as e:
+        print(f"Gmail OAuth error: {e}")
         return RedirectResponse(
-            url="/dashboard/settings?gmail=error",
+            url=f"https://frontend-eta-amber-58.vercel.app/dashboard/settings?gmail=error&msg={str(e)[:100]}",
             status_code=302
         )
 
@@ -161,6 +231,12 @@ async def send_gmail(
     Send email via user's Gmail account
     """
     try:
+        if not GMAIL_AVAILABLE:
+            raise HTTPException(
+                status_code=500,
+                detail="Gmail libraries not installed"
+            )
+        
         # Get user's Gmail token
         token = db.query(GmailToken).filter(
             GmailToken.user_id == current_user.id,
@@ -173,17 +249,57 @@ async def send_gmail(
                 detail="Gmail not connected. Please connect your Gmail account first."
             )
         
-        # TODO: Implement actual Gmail sending using google-api-python-client
-        # This requires:
-        # 1. Refreshing token if expired
-        # 2. Building MIME message
-        # 3. Calling Gmail API
+        # Refresh token if expired
+        credentials = Credentials(
+            token=token.access_token,
+            refresh_token=token.refresh_token,
+            token_uri=token.token_uri,
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            scopes=json.loads(token.scopes)
+        )
         
-        # Placeholder response
+        if credentials.expired and credentials.refresh_token:
+            credentials.refresh(GoogleRequest())
+            # Update token in database
+            token.access_token = credentials.token
+            token.expiry = credentials.expiry
+            token.updated_at = datetime.utcnow()
+            db.commit()
+        
+        # Build email message
+        if email.html:
+            message = MIMEMultipart('alternative')
+            message['to'] = email.to
+            message['subject'] = email.subject
+            text_part = MIMEText(email.body, 'plain')
+            html_part = MIMEText(email.body, 'html')
+            message.attach(text_part)
+            message.attach(html_part)
+        else:
+            message = MIMEText(email.body)
+            message['to'] = email.to
+            message['subject'] = email.subject
+        
+        # Encode message
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        
+        # Send via Gmail API
+        service = build('gmail', 'v1', credentials=credentials)
+        send_result = service.users().messages().send(
+            userId='me',
+            body={'raw': raw_message}
+        ).execute()
+        
+        # Update last used timestamp
+        token.last_used_at = datetime.utcnow()
+        db.commit()
+        
         return {
             "success": True,
-            "message": "Email queued for sending",
-            "note": "Gmail API integration requires google-api-python-client library"
+            "message": "Email sent successfully",
+            "message_id": send_result.get('id'),
+            "thread_id": send_result.get('threadId')
         }
         
     except HTTPException:
