@@ -217,6 +217,32 @@ async def disconnect_gmail(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/force-clear")
+async def force_clear_gmail_tokens(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Force clear ALL Gmail tokens for current user (admin/debug endpoint)
+    """
+    try:
+        # Delete ALL tokens for this user
+        deleted_count = db.query(GmailToken).filter(
+            GmailToken.user_id == current_user.id
+        ).delete()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Force-cleared {deleted_count} Gmail token(s)",
+            "deleted_count": deleted_count
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/send")
 async def send_gmail(
     email: GmailSendRequest,
