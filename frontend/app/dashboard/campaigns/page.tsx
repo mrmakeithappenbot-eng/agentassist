@@ -16,6 +16,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
+import { fetchWithAuth } from '@/lib/auth';
 
 interface Campaign {
   id: number;
@@ -50,55 +51,98 @@ export default function CampaignsPage() {
     type: 'email' as 'email' | 'sms' | 'both',
   });
 
-  // Load campaigns from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      setCampaigns(JSON.parse(saved));
+  // Load campaigns from API
+  const fetchCampaigns = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/campaigns`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setCampaigns(data.campaigns);
+      }
+    } catch (err) {
+      console.error('Failed to load campaigns:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchCampaigns();
   }, []);
 
-  // Save campaigns to localStorage
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
-    }
-  }, [campaigns, loading]);
-
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.name.trim()) return;
     
-    const newCampaign: Campaign = {
-      id: Date.now(),
-      name: form.name,
-      type: form.type,
-      status: 'draft',
-      leads_count: 0,
-      sent_count: 0,
-      open_rate: 0,
-      reply_rate: 0,
-      steps: [],
-      created_at: new Date().toISOString(),
-    };
-    
-    setCampaigns(prev => [...prev, newCampaign]);
-    setForm({ name: '', type: 'email' });
-    setShowModal(false);
-  };
-
-  const handleToggleStatus = (id: number) => {
-    setCampaigns(prev => prev.map(c => {
-      if (c.id === id) {
-        return { ...c, status: c.status === 'active' ? 'paused' : 'active' };
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/campaigns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: form.name,
+          type: form.type,
+          steps: []
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        await fetchCampaigns(); // Refresh list
+        setForm({ name: '', type: 'email' });
+        setShowModal(false);
       }
-      return c;
-    }));
+    } catch (err) {
+      console.error('Failed to create campaign:', err);
+      alert('Failed to create campaign');
+    }
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('Delete this campaign? This cannot be undone.')) {
-      setCampaigns(prev => prev.filter(c => c.id !== id));
+  const handleToggleStatus = async (id: number) => {
+    try {
+      const campaign = campaigns.find(c => c.id === id);
+      if (!campaign) return;
+      
+      const newStatus = campaign.status === 'active' ? 'paused' : 'active';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/campaigns/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        await fetchCampaigns(); // Refresh list
+      }
+    } catch (err) {
+      console.error('Failed to update campaign:', err);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Delete this campaign? This cannot be undone.')) return;
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetchWithAuth(`${apiUrl}/api/campaigns/${id}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        await fetchCampaigns(); // Refresh list
+      }
+    } catch (err) {
+      console.error('Failed to delete campaign:', err);
     }
   };
 
@@ -219,7 +263,7 @@ export default function CampaignsPage() {
                         'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                       }`}
                     >
-                      {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                      {campaign.status ? campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1) : 'Draft'}
                     </span>
                   </div>
                   
