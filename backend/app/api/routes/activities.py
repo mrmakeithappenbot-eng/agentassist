@@ -1,5 +1,5 @@
 """
-Lead Activity API Routes
+Lead Activity API Routes - Multi-User Support
 Track interactions with leads
 """
 
@@ -12,6 +12,8 @@ from datetime import datetime
 from app.core.database import get_db
 from app.models.activity import LeadActivity
 from app.models.leads import Lead
+from app.models.user import User
+from app.api.routes.auth import get_current_user
 
 router = APIRouter()
 
@@ -35,13 +37,21 @@ class ActivityResponse(BaseModel):
     updated_at: str
 
 @router.post("/{lead_id}/activities")
-async def create_activity(lead_id: int, activity: ActivityCreate, db: Session = Depends(get_db)):
+async def create_activity(
+    lead_id: int,
+    activity: ActivityCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Add an activity/note to a lead
+    Add an activity/note to a lead (requires authentication)
     """
     try:
-        # Verify lead exists
-        lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        # Verify lead exists and belongs to current user
+        lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
         if not lead:
             raise HTTPException(status_code=404, detail="Lead not found")
         
@@ -89,13 +99,21 @@ async def create_activity(lead_id: int, activity: ActivityCreate, db: Session = 
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{lead_id}/activities")
-async def get_activities(lead_id: int, limit: int = 50, db: Session = Depends(get_db)):
+async def get_activities(
+    lead_id: int,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get activity timeline for a lead
+    Get activity timeline for a lead (requires authentication)
     """
     try:
-        # Verify lead exists
-        lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        # Verify lead exists and belongs to current user
+        lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
         if not lead:
             raise HTTPException(status_code=404, detail="Lead not found")
         
@@ -133,12 +151,21 @@ async def update_activity(
     lead_id: int, 
     activity_id: int, 
     activity_update: ActivityUpdate, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Update an activity
+    Update an activity (requires authentication)
     """
     try:
+        # Verify lead belongs to current user
+        lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
         # Find the activity
         db_activity = db.query(LeadActivity)\
             .filter(LeadActivity.id == activity_id, LeadActivity.lead_id == lead_id)\
@@ -179,11 +206,24 @@ async def update_activity(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{lead_id}/activities/{activity_id}")
-async def delete_activity(lead_id: int, activity_id: int, db: Session = Depends(get_db)):
+async def delete_activity(
+    lead_id: int,
+    activity_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Delete an activity
+    Delete an activity (requires authentication)
     """
     try:
+        # Verify lead belongs to current user
+        lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
         # Find the activity
         db_activity = db.query(LeadActivity)\
             .filter(LeadActivity.id == activity_id, LeadActivity.lead_id == lead_id)\
