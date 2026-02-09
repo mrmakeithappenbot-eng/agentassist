@@ -1,421 +1,204 @@
 """
-Task Management API Routes
-Team leader task creation, assignment, and tracking
+Tasks API Routes - Database-backed
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from datetime import datetime
 
 from app.core.database import get_db
-from app.models.team import Task, TaskAssignment, TaskType, TaskStatus, TaskCategory
+from app.models.tasks import Task
 from app.models.user import User
+from app.api.routes.auth import get_current_user
 
 router = APIRouter()
 
-# Request/Response Models
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    task_type: str = "optional"  # optional, mandatory
-    task_category: str = "manual"  # auto, manual, team
-    due_date: Optional[datetime] = None
-    scheduled_for: Optional[datetime] = None
-    share_with_team: bool = True
-    is_private: bool = False
-    assign_to: List[int] = []  # List of user IDs
-    team_id: Optional[int] = None
+    type: str  # call, email, text, meeting, other
+    dueDate: str
+    dueTime: Optional[str] = None
+    priority: str = "medium"
+    leadName: Optional[str] = None
+    leadId: Optional[int] = None
 
-class TaskResponse(BaseModel):
-    id: int
-    title: str
-    description: Optional[str]
-    task_type: str
-    task_category: str
-    due_date: Optional[datetime]
-    scheduled_for: Optional[datetime]
-    share_with_team: bool
-    is_private: bool
-    creator_id: int
-    creator_name: Optional[str]
-    team_id: Optional[int]
-    assignments: List[dict]
-    google_calendar_event_id: Optional[str]
-    created_at: datetime
-
-class TaskStatusUpdate(BaseModel):
-    status: str  # accepted, declined, completed
-    notes: Optional[str] = None
-
-@router.post("/")
-async def create_task(task: TaskCreate, user_id: int, db: Session = Depends(get_db)):
-    """
-    Create a new task and optionally assign to team members
-    
-    Required query param: user_id (creator)
-    
-    If share_with_team=True and team assigned, syncs to Google Calendar (future)
-    """
-    try:
-        # Create task
-        new_task = Task(
-            title=task.title,
-            description=task.description,
-            task_type=TaskType(task.task_type),
-            task_category=TaskCategory(task.task_category),
-            due_date=task.due_date,
-            scheduled_for=task.scheduled_for,
-            share_with_team=task.share_with_team,
-            is_private=task.is_private,
-            creator_id=user_id,
-            team_id=task.team_id
-        )
-        
-        db.add(new_task)
-        db.commit()
-        db.refresh(new_task)
-        
-        # Create assignments for specified users
-        assignments_created = []
-        for assignee_id in task.assign_to:
-            assignment = TaskAssignment(
-                task_id=new_task.id,
-                assignee_id=assignee_id,
-                status=TaskStatus.PENDING
-            )
-            db.add(assignment)
-            assignments_created.append(assignee_id)
-        
-        db.commit()
-        
-        return {
-            "success": True,
-            "task_id": new_task.id,
-            "message": f"Task created and assigned to {len(assignments_created)} team member(s)",
-            "google_synced": False  # Future: implement Google Calendar sync
-        }
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    dueDate: Optional[str] = None
+    dueTime: Optional[str] = None
+    priority: Optional[str] = None
+    completed: Optional[bool] = None
+    leadName: Optional[str] = None
+    leadId: Optional[int] = None
 
 @router.get("/")
 async def get_tasks(
-    user_id: int,
-    team_id: Optional[int] = None,
-    category: Optional[str] = None,
-    status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    filter: Optional[str] = None,
+    completed: Optional[bool] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get tasks filtered by user, team, category, or status
-    
-    Returns tasks where user is either:
-    - The creator
-    - Assigned to the task
+    Get all tasks for current user
     """
     try:
-        # Base query: tasks created by user OR assigned to user
-        query = db.query(Task).join(
-            TaskAssignment, 
-            Task.id == TaskAssignment.task_id,
-            isouter=True
-        ).filter(
-            (Task.creator_id == user_id) | (TaskAssignment.assignee_id == user_id)
-        )
+        query = db.query(Task).filter(Task.user_id == current_user.id)
         
-        # Apply filters
-        if team_id:
-            query = query.filter(Task.team_id == team_id)
+        # Filter by completion status
+        if completed is not None:
+            query = query.filter(Task.completed == completed)
         
-        if category:
-            query = query.filter(Task.task_category == category)
+        # Filter by date range
+        if filter:
+            today = datetime.now().strftime('%Y-%m-%d')
+            if filter == 'today':
+                query = query.filter(Task.due_date == today)
+            elif filter == 'week':
+                # Get tasks for next 7 days
+                pass  # Add date range logic if needed
         
-        # Get tasks
-        tasks = query.distinct().all()
+        # Order by due date, then time
+        query = query.order_by(Task.due_date, Task.due_time)
         
-        # Format response
-        tasks_list = []
-        for task in tasks:
-            # Get creator name
-            creator = db.query(User).filter(User.id == task.creator_id).first()
-            creator_name = creator.email if creator else "Unknown"
-            
-            # Get assignments
-            assignments = db.query(TaskAssignment).filter(
-                TaskAssignment.task_id == task.id
-            ).all()
-            
-            # Filter by status if specified
-            if status:
-                assignments = [a for a in assignments if a.status.value == status]
-                if not assignments and task.creator_id != user_id:
-                    continue  # Skip if no matching assignments for non-creator
-            
-            tasks_list.append({
-                "id": task.id,
-                "title": task.title,
-                "description": task.description,
-                "task_type": task.task_type.value,
-                "task_category": task.task_category.value,
-                "due_date": task.due_date.isoformat() if task.due_date else None,
-                "scheduled_for": task.scheduled_for.isoformat() if task.scheduled_for else None,
-                "share_with_team": task.share_with_team,
-                "is_private": task.is_private,
-                "creator_id": task.creator_id,
-                "creator_name": creator_name,
-                "team_id": task.team_id,
-                "assignments": [a.to_dict() for a in assignments],
-                "created_at": task.created_at.isoformat() if task.created_at else None
-            })
+        tasks = query.all()
         
         return {
             "success": True,
-            "tasks": tasks_list,
-            "count": len(tasks_list)
+            "count": len(tasks),
+            "tasks": [task.to_dict() for task in tasks]
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch tasks: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/calendar")
-async def get_calendar_view(
-    user_id: int,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    db: Session = Depends(get_db)
+@router.post("/")
+async def create_task(
+    task: TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get unified calendar view showing:
-    - Personal tasks
-    - Team tasks
-    - AI automated activities
-    - Manual tasks
-    
-    Color coding:
-    - AUTO (sparkle): AI automated
-    - MANUAL (user icon): Requires human action
-    - TEAM (group): Team assignment
-    
-    Task type:
-    - MANDATORY (red dot)
-    - OPTIONAL (green dot)
+    Create a new task
     """
     try:
-        # Get tasks for user (created by or assigned to)
-        query = db.query(Task).join(
-            TaskAssignment,
-            Task.id == TaskAssignment.task_id,
-            isouter=True
-        ).filter(
-            (Task.creator_id == user_id) | (TaskAssignment.assignee_id == user_id)
+        db_task = Task(
+            user_id=current_user.id,
+            title=task.title,
+            description=task.description,
+            task_type=task.type,
+            due_date=task.dueDate,
+            due_time=task.dueTime,
+            priority=task.priority,
+            lead_name=task.leadName,
+            lead_id=task.leadId,
+            completed=False
         )
         
-        # Filter by date range if provided
-        if start_date:
-            start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            query = query.filter(Task.scheduled_for >= start)
-        
-        if end_date:
-            end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            query = query.filter(Task.scheduled_for <= end)
-        
-        tasks = query.distinct().all()
-        
-        # Format as calendar events
-        events = []
-        for task in tasks:
-            # Get user's assignment status if applicable
-            assignment = db.query(TaskAssignment).filter(
-                TaskAssignment.task_id == task.id,
-                TaskAssignment.assignee_id == user_id
-            ).first()
-            
-            user_status = assignment.status.value if assignment else None
-            
-            # Get creator name
-            creator = db.query(User).filter(User.id == task.creator_id).first()
-            
-            events.append({
-                "id": task.id,
-                "title": task.title,
-                "description": task.description,
-                "start": task.scheduled_for.isoformat() if task.scheduled_for else task.due_date.isoformat() if task.due_date else None,
-                "category": task.task_category.value,
-                "task_type": task.task_type.value,
-                "user_status": user_status,
-                "creator_name": creator.email if creator else "Unknown",
-                "is_creator": task.creator_id == user_id
-            })
-        
-        return {
-            "success": True,
-            "events": events,
-            "count": len(events)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch calendar: {str(e)}")
-
-@router.patch("/{task_id}/status")
-async def update_task_status(
-    task_id: int, 
-    update: TaskStatusUpdate, 
-    user_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Update task status (accept, decline, complete)
-    
-    Required query param: user_id (the person responding)
-    """
-    try:
-        # Find the assignment
-        assignment = db.query(TaskAssignment).filter(
-            TaskAssignment.task_id == task_id,
-            TaskAssignment.assignee_id == user_id
-        ).first()
-        
-        if not assignment:
-            raise HTTPException(status_code=404, detail="Task assignment not found for this user")
-        
-        # Update status
-        assignment.status = TaskStatus(update.status)
-        assignment.responded_at = datetime.utcnow()
-        assignment.notes = update.notes
-        
-        if update.status == "completed":
-            assignment.completed_at = datetime.utcnow()
-        
+        db.add(db_task)
         db.commit()
+        db.refresh(db_task)
         
         return {
             "success": True,
-            "task_id": task_id,
-            "status": update.status,
-            "message": f"Task {update.status}"
+            "message": "Task created successfully",
+            "task": db_task.to_dict()
         }
         
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {update.status}")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update task: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/{task_id}")
-async def get_task(task_id: int, db: Session = Depends(get_db)):
+@router.put("/{task_id}")
+async def update_task(
+    task_id: int,
+    task_update: TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get single task details with all assignments
+    Update a task
     """
     try:
-        task = db.query(Task).filter(Task.id == task_id).first()
+        db_task = db.query(Task).filter(
+            Task.id == task_id,
+            Task.user_id == current_user.id
+        ).first()
         
-        if not task:
+        if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
         
-        # Get creator
-        creator = db.query(User).filter(User.id == task.creator_id).first()
+        # Update fields
+        if task_update.title is not None:
+            db_task.title = task_update.title
+        if task_update.description is not None:
+            db_task.description = task_update.description
+        if task_update.type is not None:
+            db_task.task_type = task_update.type
+        if task_update.dueDate is not None:
+            db_task.due_date = task_update.dueDate
+        if task_update.dueTime is not None:
+            db_task.due_time = task_update.dueTime
+        if task_update.priority is not None:
+            db_task.priority = task_update.priority
+        if task_update.completed is not None:
+            db_task.completed = task_update.completed
+            if task_update.completed:
+                db_task.completed_at = datetime.utcnow()
+            else:
+                db_task.completed_at = None
+        if task_update.leadName is not None:
+            db_task.lead_name = task_update.leadName
+        if task_update.leadId is not None:
+            db_task.lead_id = task_update.leadId
         
-        # Get assignments
-        assignments = db.query(TaskAssignment).filter(
-            TaskAssignment.task_id == task_id
-        ).all()
+        db.commit()
+        db.refresh(db_task)
         
         return {
             "success": True,
-            "task": {
-                "id": task.id,
-                "title": task.title,
-                "description": task.description,
-                "task_type": task.task_type.value,
-                "task_category": task.task_category.value,
-                "due_date": task.due_date.isoformat() if task.due_date else None,
-                "scheduled_for": task.scheduled_for.isoformat() if task.scheduled_for else None,
-                "share_with_team": task.share_with_team,
-                "is_private": task.is_private,
-                "creator_id": task.creator_id,
-                "creator_name": creator.email if creator else "Unknown",
-                "team_id": task.team_id,
-                "assignments": [a.to_dict() for a in assignments],
-                "created_at": task.created_at.isoformat() if task.created_at else None
-            }
+            "message": "Task updated successfully",
+            "task": db_task.to_dict()
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch task: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{task_id}/request-add")
-async def request_task_addition(
-    task_id: int, 
-    user_id: int, 
-    reason: str,
-    db: Session = Depends(get_db)
+@router.delete("/{task_id}")
+async def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Team member requests leader to add task to their calendar
-    """
-    # TODO: Create notification for team leader
-    # For now, just return success
-    
-    return {
-        "success": True,
-        "message": "Request sent to team leader"
-    }
-
-@router.get("/stats/team")
-async def get_task_stats(team_id: int, db: Session = Depends(get_db)):
-    """
-    Get task completion stats for team
+    Delete a task
     """
     try:
-        # Get all tasks for team
-        tasks = db.query(Task).filter(Task.team_id == team_id).all()
+        db_task = db.query(Task).filter(
+            Task.id == task_id,
+            Task.user_id == current_user.id
+        ).first()
         
-        # Count statuses across all assignments
-        total_assignments = 0
-        completed = 0
-        pending = 0
-        declined = 0
-        overdue = 0
+        if not db_task:
+            raise HTTPException(status_code=404, detail="Task not found")
         
-        now = datetime.utcnow()
-        
-        for task in tasks:
-            assignments = db.query(TaskAssignment).filter(
-                TaskAssignment.task_id == task.id
-            ).all()
-            
-            for assignment in assignments:
-                total_assignments += 1
-                
-                if assignment.status == TaskStatus.COMPLETED:
-                    completed += 1
-                elif assignment.status == TaskStatus.PENDING:
-                    pending += 1
-                    # Check if overdue
-                    if task.due_date and task.due_date < now:
-                        overdue += 1
-                elif assignment.status == TaskStatus.DECLINED:
-                    declined += 1
-        
-        completion_rate = int((completed / total_assignments * 100)) if total_assignments > 0 else 0
+        db.delete(db_task)
+        db.commit()
         
         return {
             "success": True,
-            "stats": {
-                "total_tasks": len(tasks),
-                "total_assignments": total_assignments,
-                "completed": completed,
-                "pending": pending,
-                "declined": declined,
-                "overdue": overdue,
-                "completion_rate": completion_rate
-            }
+            "message": "Task deleted successfully"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
