@@ -67,6 +67,11 @@ export default function SettingsPage() {
     hasTeam: boolean;
   } | null>(null);
   const [editingTeamName, setEditingTeamName] = useState(false);
+  
+  // Gmail connection state
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
+  const [gmailLoading, setGmailLoading] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   
   // Expense tracking state
@@ -116,6 +121,37 @@ export default function SettingsPage() {
     };
     
     fetchProfile();
+    
+    // Check Gmail connection status
+    const checkGmailStatus = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+        const response = await fetchWithAuth(`${apiUrl}/api/gmail/status`);
+        const data = await response.json();
+        if (data.success && data.connected) {
+          setGmailConnected(true);
+          setGmailEmail(data.email);
+        }
+      } catch (error) {
+        console.error('Failed to check Gmail status:', error);
+      }
+    };
+    
+    checkGmailStatus();
+    
+    // Check for Gmail OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('gmail') === 'connected') {
+      const email = urlParams.get('email');
+      alert(`Gmail connected successfully! ${email ? `Using: ${email}` : ''}`);
+      // Clear URL params
+      window.history.replaceState({}, '', '/dashboard/settings');
+      checkGmailStatus(); // Refresh status
+    } else if (urlParams.get('gmail') === 'error') {
+      const msg = urlParams.get('msg');
+      alert(`Gmail connection failed${msg ? `: ${msg}` : ''}`);
+      window.history.replaceState({}, '', '/dashboard/settings');
+    }
     
     // Load saved theme
     const savedTheme = localStorage.getItem('theme') || 'system';
@@ -212,6 +248,50 @@ export default function SettingsPage() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/login');
+  };
+
+  const handleConnectGmail = async () => {
+    setGmailLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+      const response = await fetchWithAuth(`${apiUrl}/api/gmail/oauth/url`);
+      const data = await response.json();
+      
+      if (data.success && data.oauth_url) {
+        // Redirect to Google OAuth
+        window.location.href = data.oauth_url;
+      } else {
+        alert('Failed to connect Gmail: ' + (data.detail || 'Unknown error'));
+        setGmailLoading(false);
+      }
+    } catch (error) {
+      console.error('Gmail connection error:', error);
+      alert('Error connecting Gmail');
+      setGmailLoading(false);
+    }
+  };
+
+  const handleDisconnectGmail = async () => {
+    if (!confirm('Disconnect Gmail? You will no longer be able to send campaigns.')) return;
+    
+    setGmailLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+      const response = await fetchWithAuth(`${apiUrl}/api/gmail/disconnect`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setGmailConnected(false);
+        setGmailEmail(null);
+      }
+    } catch (error) {
+      console.error('Gmail disconnect error:', error);
+      alert('Error disconnecting Gmail');
+    } finally {
+      setGmailLoading(false);
+    }
   };
 
   const handleThemeChange = (newTheme: string) => {
@@ -591,6 +671,42 @@ export default function SettingsPage() {
 
                 {/* CSV Upload */}
                 <CsvImporter />
+
+                {/* Gmail Integration */}
+                <div className="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <EnvelopeIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          Gmail Integration
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {gmailConnected 
+                            ? `Connected: ${gmailEmail}`
+                            : 'Send campaigns from your Gmail account (10,000 emails/day free!)'}
+                        </p>
+                      </div>
+                    </div>
+                    {gmailConnected ? (
+                      <button
+                        onClick={handleDisconnectGmail}
+                        disabled={gmailLoading}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                      >
+                        {gmailLoading ? 'Disconnecting...' : 'Disconnect'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleConnectGmail}
+                        disabled={gmailLoading}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        {gmailLoading ? 'Connecting...' : 'Connect Gmail'}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 {/* Quick Links */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
