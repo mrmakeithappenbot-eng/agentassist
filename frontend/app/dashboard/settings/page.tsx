@@ -21,7 +21,8 @@ import {
   PlusIcon,
   TrashIcon,
   UserGroupIcon,
-  PencilIcon
+  PencilIcon,
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 import { fetchWithAuth } from '@/lib/auth';
