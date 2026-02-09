@@ -20,6 +20,14 @@ async def lifespan(app: FastAPI):
     try:
         init_db()
         print("✅ Database initialized successfully")
+        
+        # Run migration for multi-user support
+        try:
+            from migrate_add_user_id import migrate
+            migrate()
+        except Exception as e:
+            print(f"⚠️ Migration warning (may already be applied): {e}")
+            
     except Exception as e:
         print(f"⚠️ Database initialization error: {e}")
     
