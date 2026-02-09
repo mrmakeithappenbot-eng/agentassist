@@ -18,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/ui/BackButton';
+import { fetchWithAuth } from '@/lib/auth';
 
 interface Lead {
   id: string;
@@ -93,7 +94,7 @@ export default function LeadsPage() {
   const fetchLeads = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/leads?limit=100`);
+      const response = await fetchWithAuth(`${apiUrl}/api/leads?limit=100`);
       const data = await response.json();
       
       if (data.success) {
@@ -132,7 +133,7 @@ export default function LeadsPage() {
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/leads/${leadId}`, {
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}`, {
         method: 'DELETE'
       });
       
@@ -171,7 +172,7 @@ export default function LeadsPage() {
         : `${apiUrl}/api/leads/create`;
       const method = editingLead ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
