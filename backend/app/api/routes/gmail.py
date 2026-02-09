@@ -124,33 +124,28 @@ async def gmail_oauth_callback(
         user_info = service.userinfo().get().execute()
         email_address = user_info.get('email')
         
-        # Store or update token in database
-        existing_token = db.query(GmailToken).filter(
+        # Delete any existing tokens (force fresh connection)
+        existing_tokens = db.query(GmailToken).filter(
             GmailToken.user_id == user_id
-        ).first()
+        ).all()
         
-        if existing_token:
-            # Update existing token
-            existing_token.access_token = credentials.token
-            existing_token.refresh_token = credentials.refresh_token or existing_token.refresh_token
-            existing_token.scopes = json.dumps(list(credentials.scopes))
-            existing_token.expiry = credentials.expiry
-            existing_token.email_address = email_address
-            existing_token.is_active = True
-            existing_token.updated_at = datetime.utcnow()
-        else:
-            # Create new token
-            new_token = GmailToken(
-                user_id=user_id,
-                access_token=credentials.token,
-                refresh_token=credentials.refresh_token,
-                token_uri=credentials.token_uri,
-                scopes=json.dumps(list(credentials.scopes)),
-                expiry=credentials.expiry,
-                email_address=email_address,
-                is_active=True
-            )
-            db.add(new_token)
+        for token in existing_tokens:
+            db.delete(token)
+        
+        db.flush()  # Ensure deletions are processed
+        
+        # Create new token
+        new_token = GmailToken(
+            user_id=user_id,
+            access_token=credentials.token,
+            refresh_token=credentials.refresh_token,
+            token_uri=credentials.token_uri,
+            scopes=json.dumps(list(credentials.scopes)),
+            expiry=credentials.expiry,
+            email_address=email_address,
+            is_active=True
+        )
+        db.add(new_token)
         
         db.commit()
         
