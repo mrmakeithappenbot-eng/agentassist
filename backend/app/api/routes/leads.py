@@ -1,5 +1,5 @@
 """
-Leads API Routes with Database
+Leads API Routes with Database - Multi-User Support
 """
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
@@ -11,6 +11,8 @@ import io
 
 from app.core.database import get_db
 from app.models.leads import Lead
+from app.models.user import User
+from app.api.routes.auth import get_current_user
 
 router = APIRouter()
 
@@ -56,9 +58,13 @@ class LeadResponse(BaseModel):
     created_at: Optional[str] = None
 
 @router.post("/create")
-async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
+async def create_lead(
+    lead: LeadCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Create a single lead manually
+    Create a single lead manually (requires authentication)
     """
     try:
         # Validate at least one contact method
@@ -68,8 +74,9 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
                 detail="Must provide at least first name, email, or phone"
             )
         
-        # Create lead in database
+        # Create lead in database with user_id
         db_lead = Lead(
+            user_id=current_user.id,
             first_name=lead.first_name,
             last_name=lead.last_name,
             email=lead.email,
@@ -81,7 +88,8 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
             price_min=lead.price_min,
             price_max=lead.price_max,
             notes=lead.notes,
-            imported_from='Manual'
+            imported_from='Manual',
+            imported_by=current_user.id
         )
         db.add(db_lead)
         db.commit()
@@ -114,16 +122,20 @@ async def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/stats")
-async def get_lead_stats(db: Session = Depends(get_db)):
+async def get_lead_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get lead statistics from database
+    Get lead statistics for current user
     """
     try:
-        # Count total leads
-        total = db.query(Lead).count()
+        # Count total leads for this user
+        total = db.query(Lead).filter(Lead.user_id == current_user.id).count()
         
-        # Count active leads
+        # Count active leads for this user
         active = db.query(Lead).filter(
+            Lead.user_id == current_user.id,
             Lead.status.in_(['Active', 'New', 'active', 'new', 'Contacted', 'Qualified'])
         ).count()
         
@@ -150,13 +162,21 @@ async def get_lead_stats(db: Session = Depends(get_db)):
         }
 
 @router.put("/{lead_id}")
-async def update_lead(lead_id: int, lead_update: LeadUpdate, db: Session = Depends(get_db)):
+async def update_lead(
+    lead_id: int,
+    lead_update: LeadUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Update an existing lead
+    Update an existing lead (only your own)
     """
     try:
-        # Find the lead
-        db_lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        # Find the lead - must belong to current user
+        db_lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
         if not db_lead:
             raise HTTPException(status_code=404, detail="Lead not found")
         
@@ -214,13 +234,20 @@ async def update_lead(lead_id: int, lead_update: LeadUpdate, db: Session = Depen
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{lead_id}")
-async def delete_lead(lead_id: int, db: Session = Depends(get_db)):
+async def delete_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Delete a lead
+    Delete a lead (only your own)
     """
     try:
-        # Find the lead
-        db_lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        # Find the lead - must belong to current user
+        db_lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
         if not db_lead:
             raise HTTPException(status_code=404, detail="Lead not found")
         
@@ -240,12 +267,19 @@ async def delete_lead(lead_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{lead_id}")
-async def get_lead(lead_id: int, db: Session = Depends(get_db)):
+async def get_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get a single lead by ID
+    Get a single lead by ID (only your own)
     """
     try:
-        db_lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        db_lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
         if not db_lead:
             raise HTTPException(status_code=404, detail="Lead not found")
         
@@ -274,9 +308,13 @@ async def get_lead(lead_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/import")
-async def import_leads_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def import_leads_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Import leads from CSV file - Saves to database
+    Import leads from CSV file - Saves to database (requires authentication)
     
     Accepts any CSV with columns like:
     - first_name, last_name, email, phone, status, location, price_min, price_max, tags
@@ -405,8 +443,9 @@ async def import_leads_csv(file: UploadFile = File(...), db: Session = Depends(g
             
             # Only import if we have at least name or email
             if lead_data.get('first_name') or lead_data.get('email'):
-                # Save to database
+                # Save to database with user_id
                 db_lead = Lead(
+                    user_id=current_user.id,
                     first_name=lead_data.get('first_name'),
                     last_name=lead_data.get('last_name'),
                     email=lead_data.get('email'),
@@ -421,7 +460,8 @@ async def import_leads_csv(file: UploadFile = File(...), db: Session = Depends(g
                     source=lead_data.get('source'),
                     rating=lead_data.get('rating'),
                     business_type=lead_data.get('business_type'),
-                    imported_from='CSV'
+                    imported_from='CSV',
+                    imported_by=current_user.id
                 )
                 db.add(db_lead)
                 leads_imported.append(lead_data)
@@ -446,14 +486,15 @@ async def import_leads_csv(file: UploadFile = File(...), db: Session = Depends(g
 async def get_leads(
     status: Optional[str] = None,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Fetch leads from database
+    Fetch leads from database (only your own)
     """
     try:
-        # Query database with simpler approach
-        query = db.query(Lead)
+        # Query database - filter by user_id
+        query = db.query(Lead).filter(Lead.user_id == current_user.id)
         
         # Filter by status if provided
         if status:
