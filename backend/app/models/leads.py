@@ -37,6 +37,9 @@ class Lead(Base):
     rating = Column(String, nullable=True)
     business_type = Column(String, nullable=True)
     
+    # Ownership - REQUIRED for multi-tenant
+    user_id = Column(Integer, nullable=False, index=True)  # Owner of this lead
+    
     # Assignment
     assigned_to = Column(Integer, nullable=True)  # User ID assigned to
     assigned_at = Column(DateTime, nullable=True)
