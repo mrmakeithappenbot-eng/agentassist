@@ -209,7 +209,8 @@ async def disconnect_gmail(
         ).first()
         
         if token:
-            token.is_active = False
+            # Actually delete the token to allow fresh reconnection
+            db.delete(token)
             db.commit()
         
         return {
