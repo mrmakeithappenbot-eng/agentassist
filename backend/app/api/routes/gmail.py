@@ -11,6 +11,7 @@ from datetime import datetime
 import json
 import base64
 import os
+from urllib.parse import urlencode
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -61,18 +62,17 @@ async def get_gmail_oauth_url(
                 detail="Gmail libraries not installed. Run: pip install google-auth-oauthlib google-api-python-client"
             )
         
-        # Build OAuth URL
-        scope_string = " ".join(SCOPES)
-        oauth_url = (
-            f"https://accounts.google.com/o/oauth2/v2/auth?"
-            f"client_id={CLIENT_ID}&"
-            f"redirect_uri={REDIRECT_URI}&"
-            f"response_type=code&"
-            f"scope={scope_string}&"
-            f"access_type=offline&"
-            f"prompt=consent&"
-            f"state={current_user.id}"
-        )
+        # Build OAuth URL with properly encoded parameters
+        params = {
+            'client_id': CLIENT_ID,
+            'redirect_uri': REDIRECT_URI,
+            'response_type': 'code',
+            'scope': ' '.join(SCOPES),
+            'access_type': 'offline',
+            'prompt': 'consent',
+            'state': str(current_user.id)
+        }
+        oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
         
         return {
             "success": True,
