@@ -7,10 +7,11 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import base64
 import os
+import httpx
 from urllib.parse import urlencode
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -110,28 +111,52 @@ async def gmail_oauth_callback(
                 status_code=302
             )
         
-        # Exchange authorization code for tokens
-        flow = Flow.from_client_config(
-            {
-                "web": {
+        # Manually exchange code for tokens (bypass Flow validation)
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
                     "client_id": CLIENT_ID,
                     "client_secret": CLIENT_SECRET,
-                    "redirect_uris": [REDIRECT_URI],
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token"
+                    "redirect_uri": REDIRECT_URI,
+                    "grant_type": "authorization_code",
                 }
-            },
-            scopes=SCOPES,
-            redirect_uri=REDIRECT_URI
-        )
+            )
+            
+            if token_response.status_code != 200:
+                error_detail = token_response.text
+                print(f"❌ Token exchange failed: {error_detail}")
+                return RedirectResponse(
+                    url=f"https://frontend-eta-amber-58.vercel.app/dashboard/settings?gmail=error&msg=token_exchange_failed",
+                    status_code=302
+                )
+            
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            refresh_token = token_data.get("refresh_token")
+            expires_in = token_data.get("expires_in", 3600)
+            
+            # Get user's email using the access token
+            userinfo_response = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            user_info = userinfo_response.json()
+            email_address = user_info.get('email')
+            
+            # Calculate expiry
+            expiry = datetime.utcnow() + timedelta(seconds=expires_in)
         
-        flow.fetch_token(code=code)
-        credentials = flow.credentials
-        
-        # Get user's email address
-        service = build('oauth2', 'v2', credentials=credentials)
-        user_info = service.userinfo().get().execute()
-        email_address = user_info.get('email')
+        # Create credentials object for compatibility
+        credentials = type('obj', (object,), {
+            'token': access_token,
+            'refresh_token': refresh_token,
+            'token_uri': 'https://oauth2.googleapis.com/token',
+            'scopes': SCOPES,
+            'expiry': expiry
+        })()
         
         # Delete any existing tokens (force fresh connection)
         existing_tokens = db.query(GmailToken).filter(
