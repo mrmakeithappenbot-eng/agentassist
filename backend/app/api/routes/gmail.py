@@ -62,17 +62,26 @@ async def get_gmail_oauth_url(
                 detail="Gmail libraries not installed. Run: pip install google-auth-oauthlib google-api-python-client"
             )
         
-        # Build OAuth URL with properly encoded parameters
-        params = {
-            'client_id': CLIENT_ID,
-            'redirect_uri': REDIRECT_URI,
-            'response_type': 'code',
-            'scope': ' '.join(SCOPES),
-            'access_type': 'offline',
-            'prompt': 'consent',
-            'state': str(current_user.id)
-        }
-        oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+        # Use Flow to generate URL (ensures consistency with callback)
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": CLIENT_ID,
+                    "client_secret": CLIENT_SECRET,
+                    "redirect_uris": [REDIRECT_URI],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token"
+                }
+            },
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
+        
+        oauth_url, state = flow.authorization_url(
+            access_type='offline',
+            prompt='consent',
+            state=str(current_user.id)
+        )
         
         return {
             "success": True,
