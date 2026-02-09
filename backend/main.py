@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.api.routes import test, auth, teams, team_leads, activities, google_oauth, tasks
+from app.api.routes import test, auth, teams, team_leads, activities, google_oauth, tasks, campaigns
 from app.api.routes import leads as leads_routes
 
 @asynccontextmanager
@@ -61,6 +61,7 @@ app.include_router(activities.router, prefix="/api/leads", tags=["Activities"])
 app.include_router(teams.router, prefix="/api/teams", tags=["Teams"])
 app.include_router(team_leads.router, prefix="/api/team-leads", tags=["Team Leads"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
+app.include_router(campaigns.router, prefix="/api/campaigns", tags=["Campaigns"])
 
 @app.get("/")
 async def root():
