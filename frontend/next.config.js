@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  generateBuildId: async () => {
+    // Force unique build ID to bust cache
+    return `build-${Date.now()}`
+  },
   images: {
     domains: ['localhost'],
   },

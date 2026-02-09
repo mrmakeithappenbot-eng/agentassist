@@ -128,7 +128,7 @@ export default function PipelinePage() {
     setSyncing(true);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetch(`${apiUrl}/api/leads?limit=200`);
       const data = await response.json();
 
@@ -161,7 +161,7 @@ export default function PipelinePage() {
   // Update lead status in database when dropped
   const updateLeadStatus = async (leadId: string, newStage: string) => {
     const newStatus = stageToStatus[newStage];
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
     
     try {
       const response = await fetch(`${apiUrl}/api/leads/${leadId}`, {

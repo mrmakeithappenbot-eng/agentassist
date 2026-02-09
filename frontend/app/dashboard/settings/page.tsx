@@ -255,6 +255,17 @@ export default function SettingsPage() {
     setGmailLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+      
+      // Force-clear any old tokens first
+      try {
+        await fetchWithAuth(`${apiUrl}/api/gmail/force-clear`, { method: 'POST' });
+        console.log('✅ Cleared old Gmail tokens');
+      } catch (clearError) {
+        console.warn('Could not clear old tokens:', clearError);
+        // Continue anyway
+      }
+      
+      // Get OAuth URL
       const response = await fetchWithAuth(`${apiUrl}/api/gmail/oauth/url`);
       const data = await response.json();
       

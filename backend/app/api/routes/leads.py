@@ -536,3 +536,50 @@ async def get_leads(
             "leads": [],
             "error": str(e)
         }
+
+
+@router.get("/{lead_id}/campaigns")
+async def get_lead_campaigns(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all campaigns a lead is enrolled in
+    """
+    from app.models.campaigns import Campaign, CampaignEnrollment
+    
+    try:
+        # Verify lead ownership
+        lead = db.query(Lead).filter(
+            Lead.id == lead_id,
+            Lead.user_id == current_user.id
+        ).first()
+        
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
+        # Get enrollments
+        enrollments = db.query(CampaignEnrollment).filter(
+            CampaignEnrollment.lead_id == lead_id
+        ).all()
+        
+        result = []
+        for enrollment in enrollments:
+            campaign = db.query(Campaign).filter(Campaign.id == enrollment.campaign_id).first()
+            if campaign:
+                result.append({
+                    "enrollment": enrollment.to_dict(),
+                    "campaign": campaign.to_dict()
+                })
+        
+        return {
+            "success": True,
+            "count": len(result),
+            "campaigns": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

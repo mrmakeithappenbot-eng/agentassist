@@ -109,7 +109,7 @@ export default function LeadDetailPage() {
 
   const fetchLead = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}`);
       const data = await response.json();
       
@@ -123,7 +123,7 @@ export default function LeadDetailPage() {
 
   const fetchActivities = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}/activities`);
       const data = await response.json();
       
@@ -142,7 +142,7 @@ export default function LeadDetailPage() {
     setSubmitting(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}/activities`, {
         method: 'POST',
         headers: {
@@ -179,7 +179,7 @@ export default function LeadDetailPage() {
     if (!confirm('Delete this activity?')) return;
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}/activities/${activityId}`, {
         method: 'DELETE'
       });
@@ -205,7 +205,7 @@ export default function LeadDetailPage() {
   const handleSaveNotes = async () => {
     setSavingNotes(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}`, {
         method: 'PUT',
         headers: {
@@ -242,7 +242,7 @@ export default function LeadDetailPage() {
     try {
       const leadName = `${lead?.first_name || ''} ${lead?.last_name || ''}`.trim();
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/tasks`, {
         method: 'POST',
         headers: {

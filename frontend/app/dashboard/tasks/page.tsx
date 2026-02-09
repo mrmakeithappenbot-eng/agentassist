@@ -67,7 +67,7 @@ export default function TasksPage() {
   // Load tasks from API
   const fetchTasks = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/tasks`);
       const data = await response.json();
       
@@ -97,7 +97,7 @@ export default function TasksPage() {
     if (!form.title.trim() || !form.dueDate) return;
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/tasks`, {
         method: 'POST',
         headers: {
@@ -132,7 +132,7 @@ export default function TasksPage() {
       const task = tasks.find(t => t.id === id);
       if (!task) return;
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/tasks/${id}`, {
         method: 'PUT',
         headers: {
@@ -155,7 +155,7 @@ export default function TasksPage() {
     if (!confirm('Delete this task?')) return;
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/tasks/${id}`, {
         method: 'DELETE'
       });

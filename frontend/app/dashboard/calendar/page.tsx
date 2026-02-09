@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import BackButton from '@/components/ui/BackButton';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
 
 interface Task {
   id: number;

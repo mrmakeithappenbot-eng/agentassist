@@ -14,7 +14,9 @@ import {
   EyeIcon,
   ArrowRightIcon,
   FireIcon,
-  DevicePhoneMobileIcon
+  DevicePhoneMobileIcon,
+  MegaphoneIcon,
+  PlayIcon
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/ui/BackButton';
@@ -34,6 +36,15 @@ interface Lead {
   price_range_max: number | null;
   notes: string | null;
   created_at: string | null;
+}
+
+interface Campaign {
+  id: number;
+  name: string;
+  type: string;
+  status: string;
+  leads_count: number;
+  steps: { id: number; step_order: number; subject: string; delay_days: number }[];
 }
 
 // Lead scoring helper
@@ -76,6 +87,9 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'score' | 'name' | 'status'>('date');
   const [messageModal, setMessageModal] = useState<{lead: Lead; type: 'sms'|'email'}|null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignModal, setCampaignModal] = useState<Lead | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -93,7 +107,7 @@ export default function LeadsPage() {
 
   const fetchLeads = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/leads?limit=100`);
       const data = await response.json();
       
@@ -107,6 +121,48 @@ export default function LeadsPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCampaigns = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+      const response = await fetchWithAuth(`${apiUrl}/api/campaigns/`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setCampaigns(data.campaigns);
+      }
+    } catch (err) {
+      console.error('Error fetching campaigns:', err);
+    }
+  };
+
+  const handleEnrollInCampaign = async (campaignId: number) => {
+    if (!campaignModal) return;
+    
+    setEnrolling(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
+      const response = await fetchWithAuth(`${apiUrl}/api/campaigns/${campaignId}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_ids: [parseInt(campaignModal.id)] })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ ${campaignModal.first_name} enrolled in campaign! ${data.enrolled.length} lead(s) added.`);
+        setCampaignModal(null);
+      } else {
+        alert('Failed to enroll: ' + (data.detail || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error enrolling in campaign');
+    } finally {
+      setEnrolling(false);
     }
   };
 
@@ -132,7 +188,7 @@ export default function LeadsPage() {
     if (!confirm('Are you sure you want to delete this lead?')) return;
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}`, {
         method: 'DELETE'
       });
@@ -156,7 +212,7 @@ export default function LeadsPage() {
     setSubmitting(true);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agentassist-1.onrender.com';
       
       // Convert form data
       const payload = {
@@ -215,6 +271,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     fetchLeads();
+    fetchCampaigns();
   }, []);
 
   if (loading) {
@@ -432,6 +489,18 @@ export default function LeadsPage() {
                   <TrashIcon className="w-4 h-4 mr-1" />
                 </button>
               </div>
+              
+              {/* Start Campaign Button */}
+              {lead.email && (
+                <button
+                  onClick={() => setCampaignModal(lead)}
+                  className="w-full mt-3 flex items-center justify-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  title="Start a drip campaign for this lead"
+                >
+                  <MegaphoneIcon className="w-4 h-4 mr-2" />
+                  Start Campaign
+                </button>
+              )}
             </div>
               );
             })}
@@ -640,6 +709,103 @@ export default function LeadsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Campaign Enrollment Modal */}
+      {campaignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Start Campaign for {campaignModal.first_name}
+              </h2>
+              <button
+                onClick={() => setCampaignModal(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Campaign List */}
+            <div className="p-6 space-y-4">
+              {campaigns.length === 0 ? (
+                <div className="text-center py-8">
+                  <MegaphoneIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    No campaigns yet. Create one first!
+                  </p>
+                  <button
+                    onClick={() => {
+                      setCampaignModal(null);
+                      router.push('/dashboard/campaigns');
+                    }}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    Go to Campaigns
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Select a campaign to enroll <strong>{campaignModal.first_name} {campaignModal.last_name}</strong> ({campaignModal.email}):
+                  </p>
+                  
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {campaigns.map((campaign) => (
+                      <div
+                        key={campaign.id}
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-green-500 transition-colors"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {campaign.name}
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {campaign.steps?.length || 0} step(s) • {campaign.leads_count || 0} enrolled
+                            </p>
+                            <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
+                              campaign.status === 'active' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {campaign.status}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleEnrollInCampaign(campaign.id)}
+                            disabled={enrolling || campaign.steps?.length === 0}
+                            className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                          >
+                            <PlayIcon className="w-4 h-4 mr-1" />
+                            {enrolling ? 'Adding...' : 'Start'}
+                          </button>
+                        </div>
+                        {campaign.steps?.length === 0 && (
+                          <p className="text-xs text-red-500 mt-2">
+                            ⚠️ Add steps to this campaign first
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setCampaignModal(null)}
+                className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
