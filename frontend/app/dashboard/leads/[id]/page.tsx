@@ -17,8 +17,11 @@ import {
   DocumentTextIcon,
   PlusIcon,
   PencilIcon,
-  TrashIcon
+  TrashIcon,
+  ClipboardDocumentListIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
+import { fetchWithAuth } from '@/lib/auth';
 
 interface Lead {
   id: string;
@@ -55,6 +58,23 @@ const ACTIVITY_TYPES = [
   { value: 'other', label: 'Other', icon: ChatBubbleLeftIcon }
 ];
 
+interface Task {
+  id: number;
+  title: string;
+  description?: string;
+  type: 'call' | 'email' | 'text' | 'meeting' | 'other';
+  dueDate: string;
+  dueTime?: string;
+  priority: 'low' | 'medium' | 'high';
+  completed: boolean;
+  completedAt?: string;
+  leadName?: string;
+  leadId?: number;
+  createdAt: string;
+}
+
+const STORAGE_KEY = 'agentassist_tasks';
+
 export default function LeadDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -76,10 +96,21 @@ export default function LeadDetailPage() {
   const [notesValue, setNotesValue] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
 
+  // Task modal state
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    description: '',
+    type: 'call' as Task['type'],
+    dueDate: '',
+    dueTime: '',
+    priority: 'medium' as Task['priority'],
+  });
+
   const fetchLead = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/leads/${leadId}`);
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -93,7 +124,7 @@ export default function LeadDetailPage() {
   const fetchActivities = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/leads/${leadId}/activities`);
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}/activities`);
       const data = await response.json();
       
       if (data.success) {
@@ -112,7 +143,7 @@ export default function LeadDetailPage() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/leads/${leadId}/activities`, {
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}/activities`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -149,7 +180,7 @@ export default function LeadDetailPage() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/leads/${leadId}/activities/${activityId}`, {
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}/activities/${activityId}`, {
         method: 'DELETE'
       });
 
@@ -175,7 +206,7 @@ export default function LeadDetailPage() {
     setSavingNotes(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/leads/${leadId}`, {
+      const response = await fetchWithAuth(`${apiUrl}/api/leads/${leadId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -203,6 +234,55 @@ export default function LeadDetailPage() {
   const handleCancelNotes = () => {
     setEditingNotes(false);
     setNotesValue('');
+  };
+
+  const handleCreateTask = () => {
+    if (!taskForm.title.trim() || !taskForm.dueDate) return;
+    
+    const leadName = `${lead?.first_name || ''} ${lead?.last_name || ''}`.trim();
+    
+    const newTask: Task = {
+      id: Date.now(),
+      title: taskForm.title,
+      description: taskForm.description || undefined,
+      type: taskForm.type,
+      dueDate: taskForm.dueDate,
+      dueTime: taskForm.dueTime || undefined,
+      priority: taskForm.priority,
+      completed: false,
+      leadName: leadName || undefined,
+      leadId: parseInt(leadId) || undefined,
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Load existing tasks
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const existingTasks = saved ? JSON.parse(saved) : [];
+    
+    // Add new task
+    const updatedTasks = [...existingTasks, newTask];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTasks));
+    
+    // Reset form and close modal
+    setTaskForm({
+      title: '',
+      description: '',
+      type: 'call',
+      dueDate: '',
+      dueTime: '',
+      priority: 'medium',
+    });
+    setShowTaskModal(false);
+    
+    // Show success message
+    alert('Task created! View it in the Tasks tab.');
+  };
+
+  const handleOpenTaskModal = () => {
+    // Pre-fill with today's date
+    const today = new Date().toISOString().split('T')[0];
+    setTaskForm(f => ({ ...f, dueDate: today }));
+    setShowTaskModal(true);
   };
 
   useEffect(() => {
@@ -398,13 +478,22 @@ export default function LeadDetailPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Activity Timeline
           </h2>
-          <button
-            onClick={() => setShowActivityForm(!showActivityForm)}
-            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            <PlusIcon className="w-5 h-5 mr-2" />
-            Add Activity
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleOpenTaskModal}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <ClipboardDocumentListIcon className="w-5 h-5 mr-2" />
+              Add Task
+            </button>
+            <button
+              onClick={() => setShowActivityForm(!showActivityForm)}
+              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Add Activity
+            </button>
+          </div>
         </div>
 
         {/* Add Activity Form */}
@@ -526,6 +615,126 @@ export default function LeadDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Add Task Modal */}
+      {showTaskModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowTaskModal(false)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                New Task for {lead?.first_name} {lead?.last_name}
+              </h2>
+              <button onClick={() => setShowTaskModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 smooth-transition">
+                <XMarkIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Task Title *</label>
+                <input
+                  type="text"
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder={`e.g., Call ${lead?.first_name || 'lead'} about listing`}
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                    text-gray-900 dark:text-white placeholder-gray-400
+                    focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Description</label>
+                <textarea
+                  value={taskForm.description}
+                  onChange={(e) => setTaskForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Additional details..."
+                  rows={3}
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                    text-gray-900 dark:text-white placeholder-gray-400
+                    focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none resize-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Task Type *</label>
+                <select
+                  value={taskForm.type}
+                  onChange={(e) => setTaskForm(f => ({ ...f, type: e.target.value as Task['type'] }))}
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                    text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                >
+                  <option value="call">Phone Call</option>
+                  <option value="email">Email</option>
+                  <option value="text">Text/SMS</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Due Date *</label>
+                  <input
+                    type="date"
+                    value={taskForm.dueDate}
+                    onChange={(e) => setTaskForm(f => ({ ...f, dueDate: e.target.value }))}
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                      text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Time</label>
+                  <input
+                    type="time"
+                    value={taskForm.dueTime}
+                    onChange={(e) => setTaskForm(f => ({ ...f, dueTime: e.target.value }))}
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                      text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Priority</label>
+                <select
+                  value={taskForm.priority}
+                  onChange={(e) => setTaskForm(f => ({ ...f, priority: e.target.value as Task['priority'] }))}
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 
+                    text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
+              <button onClick={() => setShowTaskModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium smooth-transition">
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTask}
+                disabled={!taskForm.title.trim() || !taskForm.dueDate}
+                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl 
+                  text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed smooth-transition">
+                Create Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
